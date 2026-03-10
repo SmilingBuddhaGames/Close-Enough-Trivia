@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CET LAB v6 - MANUAL OVERRIDE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Barlow&display=swap" rel="stylesheet">
+
+<style>
+    body { background: #1a0035; color: white; font-family: 'Barlow', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    h1 { font-family: 'Oswald'; color: #ffd700; margin-bottom: 10px; }
+    
+    .controls { margin-bottom: 20px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; }
+    .tuner { margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 15px; }
+    
+    button { padding: 10px 20px; background: #ffd700; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 5px; }
+    button:hover { background: #fff; }
+    
+    /* Tuner Buttons (Blue/Red) to distinguish from Load buttons */
+    button.mode { background: #2596be; color: white; }
+    button.mode:hover { background: #55c4ed; }
+    button.active { background: #fff; color: #000; border: 2px solid #ffd700; }
+
+    #workbench { width: 800px; height: 500px; border: 2px dashed #444; display: flex; align-items: center; justify-content: center; position: relative; background: rgba(0,0,0,0.2); }
+    svg { width: 100%; height: 100%; }
+    
+    /* Map visual style */
+    path { fill: rgba(255,255,255,0.1); stroke: white; stroke-width: 1px; transition: fill 0.2s; cursor: pointer; }
+    path:hover { fill: rgba(255,255,255,0.2); }
+    
+    #log { margin-top: 20px; font-family: monospace; color: #0f0; width: 800px; background: #000; padding: 10px; }
+</style>
+</head>
+<body>
+
+<h1>COMPONENT LAB v6 (MANUAL)</h1>
+
+<div class="controls">
+    <div>
+        <button onclick="init()">1. LOAD DATA</button>
+        <span style="opacity:0.5">|</span>
+        <button onclick="loadMapCase('map_q_2')">Load Missouri</button>
+        <button onclick="loadMapCase('map_q_5')">Load NYC</button>
+    </div>
+
+    <div id="mapTuner" class="tuner" style="display:none;">
+        <div style="margin-bottom:10px; font-family:'Oswald'; letter-spacing:1px;">MAP TUNER CONTROLS</div>
+        
+        <button id="btnIdentity" class="mode" onclick="setMode('identity')">1. Identity (Flat)</button>
+        <button id="btnAlbers" class="mode" onclick="setMode('albers')">2. Albers USA (Curved)</button>
+        <button id="btnMercator" class="mode" onclick="setMode('mercator')">3. Mercator (Globe)</button>
+        
+        <span style="opacity:0.5; margin:0 10px;">|</span>
+        
+        <button id="btnReflect" class="mode" onclick="toggleReflect()">Toggle Flip Y</button>
+    </div>
+</div>
+
+<div id="workbench">Load Data First...</div>
+<div id="log">Waiting...</div>
+
+<script>
+    let mapData = [];
+    let currentFeatures = null;
+    
+    // TUNER STATE
+    let currentProjection = 'identity'; // Default to flat
+    let isReflected = false; // Default no flip
+
+    async function init() {
+        try {
+            const mRaw = await d3.csv("map_questions.csv");
+            mapData = mRaw.map(d => ({...d, id: d.question_id || d.ID}));
+            document.getElementById("log").innerText = "Data Loaded. Click a Case.";
+        } catch(e) { alert(e.message); }
+    }
+
+    function loadMapCase(id) {
+        const q = mapData.find(d => d.id === id);
+        document.getElementById("mapTuner").style.display = "block";
+        document.getElementById("log").innerText = `Loading ${q.geo_source}...`;
+        
+        let url = q.geo_source + ".json";
+        d3.json(url).catch(err => {
+            // Fallback URLs
+            if(q.geo_source.includes("states")) return d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json");
+            return d3.json("https://raw.githubusercontent.com/deldersveld/topojson/master/world-countries.json");
+        }).then(topology => {
+            // Extract features
+            const key = Object.keys(topology.objects).find(k => k.match(/state|countr|borough|unit/)) || Object.keys(topology.objects)[0];
+            let features = topojson.feature(topology, topology.objects[key]).features;
+
+            // Filter (Zoom)
+            if(q.visible_ids) {
+                const whitelist = q.visible_ids.split(",").map(s => s.trim());
+                const prop = q.geo_feature_property || "name";
+                features = features.filter(f => whitelist.includes(f.properties[prop]));
+            }
+
+            currentFeatures = features;
+            render(); // Initial Render
+        });
+    }
+
+    function setMode(mode) {
+        currentProjection = mode;
+        render();
+    }
+
+    function toggleReflect() {
+        isReflected = !isReflected;
+        render();
+    }
+
+    function render() {
+        const width = 800, height = 500;
+        document.getElementById("workbench").innerHTML = "";
+        const svg = d3.select("#workbench").append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+
+        // THE MAGIC SWITCH
+        let proj;
+        
+        // 1. IDENTITY (For Pre-Projected or Flat maps)
+        if(currentProjection === 'identity') {
+            proj = d3.geoIdentity()
+                .reflectY(isReflected)
+                .fitSize([width, height], {type:"FeatureCollection", features:currentFeatures});
+        } 
+        // 2. ALBERS (For Raw Lat/Long USA)
+        else if(currentProjection === 'albers') {
+            proj = d3.geoAlbersUsa()
+                .fitSize([width, height], {type:"FeatureCollection", features:currentFeatures});
+            // Albers usually doesn't need ReflectY, but we can respect it if forced
+        }
+        // 3. MERCATOR (For Raw Lat/Long World/Cities)
+        else {
+            proj = d3.geoMercator()
+                .fitSize([width, height], {type:"FeatureCollection", features:currentFeatures});
+        }
+
+        const path = d3.geoPath().projection(proj);
+
+        svg.selectAll("path")
+            .data(currentFeatures)
+            .join("path")
+            .attr("d", path)
+            .on("click", function() { d3.select(this).style("fill", "#ffd700"); });
+
+        // Update Log
+        const status = `MODE: ${currentProjection.toUpperCase()} | FLIP: ${isReflected ? "YES" : "NO"}`;
+        document.getElementById("log").innerText = status;
+        
+        // Update Buttons
+        document.querySelectorAll(".mode").forEach(b => b.classList.remove("active"));
+        if(currentProjection === 'identity') document.getElementById("btnIdentity").classList.add("active");
+        if(currentProjection === 'albers') document.getElementById("btnAlbers").classList.add("active");
+        if(currentProjection === 'mercator') document.getElementById("btnMercator").classList.add("active");
+        if(isReflected) document.getElementById("btnReflect").classList.add("active");
+    }
+</script>
+
+</body>
+</html>

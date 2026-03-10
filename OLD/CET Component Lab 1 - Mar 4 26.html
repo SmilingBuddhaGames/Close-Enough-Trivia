@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CET COMPONENT LAB</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Barlow&display=swap" rel="stylesheet">
+
+<style>
+    body { background: #1a0035; color: white; font-family: 'Barlow', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    h1 { font-family: 'Oswald'; color: #ffd700; }
+    
+    /* LAB CONTROLS */
+    .controls { margin-bottom: 20px; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; }
+    button { padding: 8px 16px; background: #ffd700; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 0 5px; }
+    button:hover { background: #fff; }
+
+    /* WORKBENCH */
+    #workbench { width: 800px; height: 500px; border: 2px dashed #444; display: flex; align-items: center; justify-content: center; position: relative; background: rgba(0,0,0,0.2); }
+    
+    /* MAP STYLES */
+    svg { width: 100%; height: 100%; }
+    path { transition: fill 0.2s; cursor: pointer; }
+    path:hover { fill: rgba(255,255,255,0.2) !important; }
+    
+    /* SLIDER STYLES */
+    .ruler-container { width: 90%; height: 150px; position: relative; }
+    .tick-line { stroke: white; stroke-width: 1; }
+    .tick-label { fill: white; font-size: 12px; text-anchor: middle; }
+    
+    /* LOGGER */
+    #log { margin-top: 20px; font-family: monospace; color: #0f0; max-height: 100px; overflow-y: auto; width: 800px; background: #000; padding: 10px; }
+</style>
+</head>
+<body>
+
+<h1>COMPONENT LAB v1.0</h1>
+
+<div class="controls">
+    <span style="margin-right:10px; opacity:0.7;">TEST CASES:</span>
+    <button onclick="loadMapCase('map_q_2')">Missouri (Triangle Fix)</button>
+    <button onclick="loadMapCase('map_q_4')">S. America (Zoom Fix)</button>
+    <button onclick="loadMapCase('map_q_5')">NYC (Abstract Fix)</button>
+    <button onclick="loadPinchCase('pinch_D')">Calories (50-step)</button>
+    <button onclick="loadPinchCase('pinch_E')">Star Wars (Block Drag)</button>
+</div>
+
+<div id="workbench">
+    <div style="opacity:0.5;">Select a Test Case above</div>
+</div>
+
+<div id="log">Waiting for input...</div>
+
+<script>
+    // --- GLOBAL DATA ---
+    let mapData = [], pinchData = [];
+    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // --- LOAD DATA ---
+    async function init() {
+        try {
+            // Handle both "ID" and "question_id" headers by normalizing
+            const pRaw = await d3.csv("pinch_questions.csv");
+            pinchData = pRaw.map(d => ({...d, id: d.question_id || d.ID}));
+            
+            const mRaw = await d3.csv("map_questions.csv");
+            mapData = mRaw.map(d => ({...d, id: d.question_id || d.ID}));
+            
+            log("Data Loaded. Ready to test.");
+        } catch(e) { log("Error loading CSVs: " + e.message); }
+    }
+    init();
+
+    // --- LOGIC: MAP RENDERER (The "Filter & Fit" Engine) ---
+    function loadMapCase(id) {
+        const q = mapData.find(d => d.id === id);
+        if(!q) return log("Question not found: " + id);
+        
+        const box = document.getElementById("workbench");
+        box.innerHTML = `Loading ${q.geo_source}...`;
+
+        // 1. Determine Source & Fallback
+        let url = q.geo_source + ".json";
+        
+        d3.json(url).catch(err => {
+            // CDN Fallbacks
+            if(q.geo_source.includes("world")) return d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+            if(q.geo_source.includes("states")) return d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json");
+            throw err;
+        }).then(topology => {
+            box.innerHTML = "";
+            const width = 800, height = 500;
+            const svg = d3.select("#workbench").append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+            
+            // 2. Extract Features
+            // Try to find the "objects" key automatically (e.g., "counties", "states", "boroughs")
+            const key = Object.keys(topology.objects).find(k => k.match(/state|countr|borough|unit/)) || Object.keys(topology.objects)[0];
+            let features = topojson.feature(topology, topology.objects[key]).features;
+
+            // 3. FILTER LOGIC (The South America Fix)
+            // If "visible_ids" exists, throw away everything else.
+            if(q.visible_ids) {
+                const whitelist = q.visible_ids.split(",").map(s => s.trim());
+                const property = q.geo_feature_property || "name";
+                features = features.filter(f => whitelist.includes(f.properties[property]));
+            }
+
+            // 4. FIT LOGIC (The Abstract Art Fix)
+            // "fitSize" automatically handles projection, centering, and zooming for ANY set of shapes.
+            const projection = d3.geoIdentity()
+                .reflectY(true) // Required for some TopoJSON files
+                .fitSize([width, height], { type: "FeatureCollection", features: features });
+                
+            const path = d3.geoPath().projection(projection);
+
+            // Render
+            svg.selectAll("path")
+                .data(features)
+                .join("path")
+                .attr("d", path)
+                .attr("fill", "rgba(255,255,255,0.1)")
+                .attr("stroke", "white")
+                .attr("stroke-width", 1)
+                .on("click", function(e, d) {
+                    const name = d.properties[q.geo_feature_property || "name"];
+                    log("Clicked: " + name);
+                    d3.select(this).attr("fill", "#ffd700");
+                });
+
+            log(`Rendered map: ${q.geo_source} with ${features.length} regions.`);
+
+        }).catch(e => {
+            box.innerHTML = "Map Error: " + e.message;
+            if(q.geo_source.includes("nyc")) box.innerHTML += "<br>(Ensure nyc_boroughs.json is in folder)";
+        });
+    }
+
+    // --- LOGIC: PINCH RENDERER (Block Drag & Audio) ---
+    function loadPinchCase(id) {
+        const q = pinchData.find(d => d.id === id);
+        if(!q) return log("Question not found: " + id);
+
+        const box = document.getElementById("workbench");
+        box.innerHTML = "";
+        
+        // Config
+        const min = +q.min_value;
+        const max = +q.max_value;
+        const majorTick = +q.major_tick || 10;
+        const snap = +q.minor_tick || 1; // Enforce minimum unit
+        
+        let l = +q.default_start || min;
+        let r = +q.default_end || max;
+        let lastSoundVal = l;
+
+        // Draw SVG
+        const width = 700;
+        const x = d3.scaleLinear().domain([min, max]).range([0, width]);
+        
+        const svg = d3.select("#workbench").append("svg")
+            .attr("width", width + 40).attr("height", 150)
+            .append("g").attr("transform", "translate(20,20)"); // Margin
+
+        // Ticks
+        const axis = d3.axisBottom(x)
+            .tickValues(d3.range(min, max + snap, majorTick))
+            .tickFormat(d => d);
+            
+        svg.append("g").attr("transform", "translate(0, 80)").call(axis)
+            .style("color", "white").style("font-size", "14px");
+
+        // The "Block"
+        const bar = svg.append("rect")
+            .attr("y", 20).attr("height", 60)
+            .attr("fill", "rgba(255, 215, 0, 0.3)")
+            .attr("stroke", "gold").attr("stroke-width", 4)
+            .style("cursor", "grab");
+
+        // Interaction State
+        let dragMode = null; // 'left', 'right', 'move'
+        let startX = 0, startL = 0, startR = 0;
+
+        function updateBar() {
+            bar.attr("x", x(l)).attr("width", Math.max(10, x(r) - x(l)));
+            log(`Range: ${l} - ${r}`);
+        }
+        updateBar();
+
+        // MOUSE DOWN: Detect Edge vs Center
+        bar.on("mousedown", function(e) {
+            const mouseX = d3.pointer(e)[0];
+            const barLeft = x(l);
+            const barWidth = x(r) - x(l);
+            const edgeZone = 20; // Pixels from edge to trigger resize
+
+            // Logic: Is click near edges?
+            if (mouseX < barLeft + edgeZone) dragMode = 'left';
+            else if (mouseX > barLeft + barWidth - edgeZone) dragMode = 'right';
+            else dragMode = 'move';
+
+            startX = mouseX;
+            startL = l;
+            startR = r;
+            
+            d3.select(window).on("mousemove", onDrag).on("mouseup", stopDrag);
+        });
+
+        function onDrag(e) {
+            // Calculate delta in DATA units (not pixels)
+            // pointer(e, svg.node()) ensures coordinates are relative to the SVG container
+            const currentX = d3.pointer(e, svg.node())[0];
+            const deltaPx = currentX - startX;
+            
+            // Convert pixel delta to value delta
+            // We use (max-min)/width to get value-per-pixel
+            const valPerPx = (max - min) / width;
+            let deltaVal = deltaPx * valPerPx;
+
+            // Snap delta to nearest increment
+            // This prevents "micro-sliding"
+            // deltaVal = Math.round(deltaVal / snap) * snap;
+
+            if (dragMode === 'move') {
+                let newL = startL + deltaVal;
+                let newR = startR + deltaVal;
+                
+                // Clamp container
+                if (newL < min) { newL = min; newR = min + (startR - startL); }
+                if (newR > max) { newR = max; newL = max - (startR - startL); }
+                
+                // Apply Snap
+                l = Math.round(newL / snap) * snap;
+                r = Math.round(newR / snap) * snap;
+            } 
+            else if (dragMode === 'left') {
+                let newL = startL + deltaVal;
+                l = Math.round(newL / snap) * snap;
+                // Collision
+                if (l > r - snap) l = r - snap; 
+                if (l < min) l = min;
+            } 
+            else if (dragMode === 'right') {
+                let newR = startR + deltaVal;
+                r = Math.round(newR / snap) * snap;
+                // Collision
+                if (r < l + snap) r = l + snap;
+                if (r > max) r = max;
+            }
+
+            updateBar();
+            checkAudio(l, r);
+        }
+
+        function stopDrag() {
+            d3.select(window).on("mousemove", null).on("mouseup", null);
+        }
+
+        function checkAudio(currentL, currentR) {
+            // Play sound if we crossed a threshold (using majorTick or snap)
+            // We track "total movement" or just current position
+            const checkVal = dragMode === 'left' ? currentL : currentR;
+            if (Math.abs(checkVal - lastSoundVal) >= snap) {
+                playTick();
+                lastSoundVal = checkVal;
+            }
+        }
+    }
+
+    // --- AUDIO UTILS ---
+    function playTick() {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "square";
+        // Randomize pitch slightly to avoid "machine gun" effect
+        osc.frequency.value = 800 + Math.random() * 200; 
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+        osc.stop(audioCtx.currentTime + 0.05);
+    }
+
+    function log(msg) {
+        document.getElementById("log").innerHTML += `> ${msg}<br>`;
+        document.getElementById("log").scrollTop = 9999;
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLOSE ENOUGH TRIVIA - BUILD v23 (COMPLETE)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* --- THEME: NEON NOIR --- */
+:root { --gold: #ffd700; --gold-dark: #9a6800; --bg-gradient: linear-gradient(150deg, #5a0a9e 0%, #1a0035 60%, #0d001f 100%); }
+
+* { box-sizing: border-box; user-select: none; }
+body { margin: 0; font-family: 'Barlow', sans-serif; background: var(--bg-gradient); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow-x: hidden; }
+
+#app { width: 95%; max-width: 1200px; padding: 20px; text-align: center; position: relative; }
+
+/* TYPOGRAPHY */
+h1 { font-family: 'Oswald', sans-serif; font-size: 54px; color: var(--gold); text-transform: uppercase; margin: 0 0 4px 0; text-shadow: 0 0 30px rgba(255,215,0,0.4); line-height: 1.05; letter-spacing: 2px; }
+
+/* TITLE SCREEN EXTRAS */
+.nerd-label { font-family: 'Oswald', sans-serif; font-size: 13px; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,215,0,0.6); margin-bottom: 14px; }
+.proto-label { font-family: 'Oswald', sans-serif; font-size: 14px; letter-spacing: 4px; color: rgba(255,255,255,0.35); margin-top: 8px; margin-bottom: 30px; }
+
+/* CENTERED SCREENS */
+.center-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 65vh; gap: 24px; }
+
+/* QUESTION TEXT */
+h2 { 
+    font-family: 'Oswald', sans-serif; 
+    font-size: 48px; 
+    line-height: 1.4;
+    margin: 0 0 20px 0; 
+    font-weight: 600; 
+    letter-spacing: 1px; 
+}
+
+/* ANSWER TEXT */
+.answer-text {
+    font-family: 'Barlow', sans-serif; font-size: 40px; font-weight: 500; line-height: 1.3; margin: 20px 0; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.hint { font-style: italic; opacity: 0.8; font-size: 24px; margin-bottom: 20px; min-height: 24px; line-height: 1.4; }
+.ppn-display { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); margin: 5px 0; }
+.ppn-label { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6; margin-bottom: 5px; margin-top: 15px; }
+.selection-display { font-family: 'Oswald', sans-serif; font-size: 28px; color: white; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+
+/* CONTROLS */
+button {
+    padding: 15px 30px; font-family: 'Oswald', sans-serif; font-size: 20px; text-transform: uppercase;
+    border: none; border-radius: 8px; background: linear-gradient(to bottom, #ffd700, #e09800); color: #160030;
+    cursor: pointer; margin: 10px; box-shadow: 0 5px 0 var(--gold-dark); transition: transform 0.1s;
+}
+button:active { transform: translateY(4px); box-shadow: none; }
+button:disabled { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; }
+
+/* LAYOUTS */
+.screen-container { display: flex; flex-wrap: wrap; background: rgba(0,0,0,0.25); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; min-height: 500px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+.left-panel { flex: 1.2; padding: 40px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid rgba(255,255,255,0.1); min-width: 400px; text-align: left; }
+.right-panel { flex: 1; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 350px; background: rgba(0,0,0,0.1); }
+
+/* MODULES */
+#mapBox, #resultMapBox { width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 20px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+#resultMapBox { height: 300px; width: 80%; margin: 10px auto; } 
+#rulerContainer { width: 100%; height: 180px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; position: relative; }
+
+/* MAP STYLES */
+path { transition: fill 0.2s; cursor: pointer; stroke: white; stroke-width: 0.5px; fill: rgba(255,255,255,0.05); }
+path:hover { fill: rgba(255,255,255,0.2) !important; }
+path.selected { fill: #ffd700 !important; stroke: #fff; stroke-width: 1px; }
+path.correct-highlight { fill: #ffd700 !important; stroke: #fff; stroke-width: 2px; }
+
+/* BONUS GRID */
+.bonus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; text-align: left; margin-bottom: 20px; }
+.bonus-item { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 6px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; font-size: 18px; }
+.bonus-item:hover { background: rgba(255,255,255,0.2); }
+.bonus-item.active { background: #ffd700; color: black; font-weight: bold; }
+
+/* RESULTS */
+.score-box { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; margin: 5px; flex: 1; border: 1px solid rgba(255,215,0,0.3); }
+.score-label { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; margin-bottom: 5px; }
+.score-val { font-family: 'Oswald'; font-size: 60px; color: var(--gold); }
+.map-reveal-label { font-family: 'Oswald'; font-size: 24px; color: var(--gold); margin-bottom: 10px; text-transform: uppercase; }
+
+/* BONUS RESULTS SPLIT */
+.bonus-result-container { display: flex; width: 100%; gap: 20px; margin-top: 20px; text-align: left; }
+.bonus-col { flex: 1; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+.bonus-col h3 { font-family: 'Oswald'; color: var(--gold); margin: 0 0 10px 0; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; }
+.bonus-list-item { font-size: 16px; margin-bottom: 6px; opacity: 0.8; }
+
+/* DEBUG OVERLAY */
+.debug-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; padding: 40px; overflow-y: auto; }
+.debug-overlay.active { display: block; }
+.debug-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; max-width: 1000px; margin: 0 auto; }
+.debug-item { background: #333; padding: 15px; border-radius: 5px; cursor: pointer; text-align: left; border: 1px solid #555; transition: all 0.2s; }
+.debug-item:hover { background: #555; border-color: var(--gold); }
+.debug-id { color: var(--gold); font-family: 'Oswald'; font-size: 18px; margin-bottom: 5px; }
+.debug-type { font-size: 12px; opacity: 0.7; text-transform: uppercase; }
+.debug-close { position: fixed; top: 20px; right: 20px; z-index: 10000; background: #555; }
+.debug-btn { background: #333; color: #aaa; font-size: 14px; padding: 10px 20px; margin-top: 30px; border: 1px solid #555; box-shadow: none; }
+.debug-btn:hover { background: #444; color: white; }
+
+/* LOADING LOG */
+#bootLog { font-family: monospace; color: #00ff00; background: rgba(0,0,0,0.95); padding: 10px; text-align: left; position: fixed; bottom: 10px; right: 10px; border-radius: 5px; font-size: 10px; pointer-events: none; opacity: 1; max-height: 100px; overflow: hidden; z-index: 99999; border: 1px solid #333; }
+.err-msg { color: #ff5555; font-weight: bold; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 3px; display:inline-block; }
+</style>
+</head>
+<body>
+
+<div id="app">
+    <div id="screen-loading">
+        <h1>System Initializing...</h1>
+        <div class="hint">Attempting to connect...</div>
+    </div>
+</div>
+
+<div id="debugMenu" class="debug-overlay">
+    <button class="debug-close" onclick="closeDebug()">CLOSE</button>
+    <h1>DEBUG DATABASE</h1>
+    <div id="debugList" class="debug-grid"></div>
+</div>
+
+<div id="bootLog">Browser Check...</div>
+
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" onerror="libError('D3')"></script>
+<script src="https://unpkg.com/topojson@3.0.2/dist/topojson.min.js" onerror="libError('TopoJSON')"></script>
+
+<script>
+// --- LOGGING ---
+function log(msg, type='') {
+    const el = document.getElementById("bootLog");
+    if(!el) return;
+    const color = type === 'err' ? '#ff5555' : '#00ff00';
+    el.innerHTML = `<span style="color:${color}">> ${msg}</span><br>` + el.innerHTML;
+}
+
+// --- ERROR TRAP ---
+function libError(libName) {
+    log(`FATAL: Failed to load ${libName}. Check Internet.`, 'err');
+    document.getElementById("screen-loading").innerHTML = `
+        <h1>CONNECTION ERROR</h1>
+        <div class="hint" style="color:#ff5555">Could not load ${libName} library.</div>
+        <p>Please check your internet connection and refresh.</p>
+    `;
+}
+
+// --- AUDIO ENGINE ---
+const AudioEngine = {
+    ctx: null,
+    init: function() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+    },
+    playTone: function(type, freq, duration, startTime=0) {
+        if (!this.ctx) return;
+        const t = startTime || this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(

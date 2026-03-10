@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CET LAB v3.0 - AUTO FIX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Barlow&display=swap" rel="stylesheet">
+
+<style>
+    body { background: #1a0035; color: white; font-family: 'Barlow', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    h1 { font-family: 'Oswald'; color: #ffd700; margin-bottom: 10px; }
+    
+    .controls { margin-bottom: 20px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; }
+    button { padding: 8px 16px; background: #ffd700; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 5px; }
+    button:hover { background: #fff; }
+
+    #workbench { width: 800px; height: 500px; border: 2px dashed #444; display: flex; align-items: center; justify-content: center; position: relative; background: rgba(0,0,0,0.2); }
+    svg { width: 100%; height: 100%; }
+    path { transition: fill 0.2s; cursor: pointer; }
+    path:hover { fill: rgba(255,255,255,0.2) !important; }
+    
+    #log { margin-top: 20px; font-family: monospace; color: #0f0; max-height: 100px; overflow-y: auto; width: 800px; background: #000; padding: 10px; }
+</style>
+</head>
+<body>
+
+<h1>COMPONENT LAB v3.0 (AUTO-FIX)</h1>
+
+<div class="controls">
+    <strong>LOAD CASE:</strong>
+    <button onclick="loadMapCase('map_q_2')">Missouri (Auto-Fix)</button>
+    <button onclick="loadMapCase('map_q_4')">S. America</button>
+    <button onclick="loadMapCase('map_q_5')">NYC (Auto-Fix)</button>
+    <button onclick="loadPinchCase('pinch_E')">Star Wars (Perfect)</button>
+</div>
+
+<div id="workbench">
+    <div style="opacity:0.5;">Select a Test Case</div>
+</div>
+
+<div id="log">Waiting...</div>
+
+<script>
+    // --- GLOBAL STATE ---
+    let mapData = [], pinchData = [];
+    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // --- INIT ---
+    async function init() {
+        try {
+            const pRaw = await d3.csv("pinch_questions.csv");
+            pinchData = pRaw.map(d => ({...d, id: d.question_id || d.ID}));
+            const mRaw = await d3.csv("map_questions.csv");
+            mapData = mRaw.map(d => ({...d, id: d.question_id || d.ID}));
+            log("Data Loaded.");
+        } catch(e) { log("Error: " + e.message); }
+    }
+    init();
+
+    // --- MAP ENGINE (THE FIX) ---
+    function loadMapCase(id) {
+        const q = mapData.find(d => d.id === id);
+        if(!q) return log("Question not found");
+        
+        const box = document.getElementById("workbench");
+        box.innerHTML = `Loading ${q.geo_source}...`;
+
+        let url = q.geo_source + ".json";
+        d3.json(url).catch(err => {
+            if(q.geo_source.includes("world")) return d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+            if(q.geo_source.includes("states")) return d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json");
+            throw err;
+        }).then(topology => {
+            // 1. Extract Features
+            const key = Object.keys(topology.objects).find(k => k.match(/state|countr|borough|unit/)) || Object.keys(topology.objects)[0];
+            let features = topojson.feature(topology, topology.objects[key]).features;
+
+            // 2. Filter (Zoom Fix)
+            if(q.visible_ids) {
+                const whitelist = q.visible_ids.split(",").map(s => s.trim());
+                const prop = q.geo_feature_property || "name";
+                features = features.filter(f => whitelist.includes(f.properties[prop]));
+            }
+
+            // 3. AUTO-PROJECTION LOGIC
+            const box = document.getElementById("workbench");
+            box.innerHTML = "";
+            const width = 800, height = 500;
+            const svg = d3.select("#workbench").append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+
+            let projection;
+
+            // FIX 1: US STATES (Pre-projected)
+            // The us-atlas file is ALREADY an Albers projection. 
+            // We MUST use geoIdentity (identity matrix) to render it as-is.
+            if(q.geo_source.includes("states")) {
+                projection = d3.geoIdentity().fitSize([width, height], {type: "FeatureCollection", features: features});
+            }
+            // FIX 2: NYC (State Plane / Mercator)
+            // NYC data is usually flat (State Plane) but needs Y-reflection to match screen coords.
+            else if(q.geo_source.includes("nyc") || q.projection === "mercator") {
+                projection = d3.geoIdentity().reflectY(true).fitSize([width, height], {type: "FeatureCollection", features: features});
+            }
+            // FIX 3: WORLD (Spherical)
+            // Standard GeoJSON is spherical Lat/Long. Use Natural Earth.
+            else {
+                projection = d3.geoNaturalEarth1().fitSize([width, height], {type: "FeatureCollection", features: features});
+            }
+
+            const path = d3.geoPath().projection(projection);
+
+            svg.selectAll("path")
+                .data(features)
+                .join("path")
+                .attr("d", path)
+                .attr("fill", "rgba(255,255,255,0.1)")
+                .attr("stroke", "white")
+                .attr("stroke-width", 1)
+                .on("click", function() {
+                    d3.select(this).attr("fill", "#ffd700");
+                });
+            
+            log(`Rendered ${q.geo_source} using smart projection.`);
+        });
+    }
+
+    // --- PINCH ENGINE (Your "Perfect" Setup) ---
+    function loadPinchCase(id) {
+        const q = pinchData.find(d => d.id === id);
+        const box = document.getElementById("workbench");
+        box.innerHTML = `<div style="position:absolute; top:10px; right:10px; background:#ffd700; color:#000; font-weight:bold; padding:5px 10px;">PPN: <span id="ppnDisplay">0</span></div>`;
+        
+        const min = +q.min_value, max = +q.max_value;
+        const snap = +q.minor_tick || 1;
+        const majorTick = +q.major_tick || 10;
+        let l = +q.default_start, r = +q.default_end;
+        let lastSoundPpn = 0; // TRACK PPN FOR AUDIO
+
+        const width = 700;
+        const x = d3.scaleLinear().domain([min, max]).range([0, width]);
+        
+        const svg = d3.select("#workbench").append("svg")
+            .attr("width", width+40).attr("height", 150).append("g").attr("transform", "translate(20,20)");
+
+        const axis = d3.axisBottom(x).tickValues(d3.range(min, max+snap, majorTick)).tickFormat(d => d);
+        svg.append("g").attr("transform", "translate(0,80)").call(axis).style("color","white");
+
+        const bar = svg.append("rect").attr("y", 20).attr("height", 60)
+            .attr("fill", "rgba(255,215,0,0.3)").attr("stroke", "gold").attr("stroke-width", 4).style("cursor", "grab");
+
+        let dragMode = null, startX=0, startL=0, startR=0;
+
+        function update() {
+            bar.attr("x", x(l)).attr("width", Math.max(10, x(r)-x(l)));
+            const pct = (r - l) / (max - min);
+            const ppn = Math.max(5, Math.round(100 - (pct * 100)));
+            document.getElementById("ppnDisplay").innerText = ppn;
+            return ppn;
+        }
+        update();
+
+        bar.on("mousedown", function(e) {
+            const mx = d3.pointer(e)[0];
+            const bx = x(l), bw = x(r)-x(l);
+            if(mx < bx + 20) dragMode = 'left';
+            else if(mx > bx + bw - 20) dragMode = 'right';
+            else dragMode = 'move';
+            startX = mx; startL = l; startR = r;
+            d3.select(window).on("mousemove", onDrag).on("mouseup", stopDrag);
+        });
+
+        function onDrag(e) {
+            const currX = d3.pointer(e, svg.node())[0];
+            const deltaVal = (currX - startX) * ((max - min) / width);
+
+            if(dragMode === 'move') {
+                let dl = startL + deltaVal, dr = startR + deltaVal;
+                if(dl < min) { dl=min; dr=min+(startR-startL); }
+                if(dr > max) { dr=max; dl=max-(startR-startL); }
+                l = Math.round(dl/snap)*snap; r = Math.round(dr/snap)*snap;
+            } else if(dragMode === 'left') {
+                l = Math.max(min, Math.min(r-snap, Math.round((startL+deltaVal)/snap)*snap));
+            } else if(dragMode === 'right') {
+                r = Math.min(max, Math.max(l+snap, Math.round((startR+deltaVal)/snap)*snap));
+            }
+            
+            const currentPpn = update();
+            checkAudio(currentPpn);
+        }
+
+        function stopDrag() { d3.select(window).on("mousemove", null).on("mouseup", null); }
+        
+        function checkAudio(ppn) {
+            // Trigger sound if PPN changes (which implies snapping happened)
+            if(ppn !== lastSoundPpn) {
+                playTick(ppn);
+                lastSoundPpn = ppn;
+            }
+        }
+    }
+
+    function playTick(ppn) {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "square";
+        // Pitch Map: 5 pts = 200Hz, 100 pts = 1000Hz
+        osc.frequency.value = 200 + (ppn * 8); 
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+        osc.stop(audioCtx.currentTime + 0.05);
+    }
+
+    function log(msg) { document.getElementById("log").innerHTML += `> ${msg}<br>`; }
+</script>
+
+</body>
+</html>

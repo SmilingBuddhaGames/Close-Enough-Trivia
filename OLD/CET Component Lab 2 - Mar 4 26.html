@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CET LAB v2.0 - TUNER</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Barlow&display=swap" rel="stylesheet">
+
+<style>
+    body { background: #1a0035; color: white; font-family: 'Barlow', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    h1 { font-family: 'Oswald'; color: #ffd700; margin-bottom: 10px; }
+    
+    /* LAB CONTROLS */
+    .controls { margin-bottom: 20px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; }
+    .debug-controls { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2); }
+    
+    button { padding: 8px 16px; background: #ffd700; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 5px; }
+    button:hover { background: #fff; }
+    button.debug { background: #444; color: white; }
+    button.debug:hover { background: #666; }
+
+    /* WORKBENCH */
+    #workbench { width: 800px; height: 500px; border: 2px dashed #444; display: flex; align-items: center; justify-content: center; position: relative; background: rgba(0,0,0,0.2); }
+    
+    /* MAP STYLES */
+    svg { width: 100%; height: 100%; }
+    path { transition: fill 0.2s; cursor: pointer; }
+    path:hover { fill: rgba(255,255,255,0.2) !important; }
+    
+    /* LOGGER */
+    #log { margin-top: 20px; font-family: monospace; color: #0f0; max-height: 100px; overflow-y: auto; width: 800px; background: #000; padding: 10px; }
+    
+    .ppn-badge { position: absolute; top: 10px; right: 10px; background: #ffd700; color: #000; font-weight: bold; padding: 5px 10px; border-radius: 4px; font-family: 'Oswald'; font-size: 20px; }
+</style>
+</head>
+<body>
+
+<h1>COMPONENT LAB v2.0</h1>
+
+<div class="controls">
+    <strong>LOAD CASE:</strong>
+    <button onclick="loadMapCase('map_q_2')">Missouri (Triangles)</button>
+    <button onclick="loadMapCase('map_q_4')">S. America</button>
+    <button onclick="loadMapCase('map_q_5')">NYC (Abstract)</button>
+    <button onclick="loadPinchCase('pinch_E')">Star Wars (Slider)</button>
+    
+    <div id="mapTuner" class="debug-controls" style="display:none;">
+        <strong>MAP TUNER:</strong>
+        <button class="debug" onclick="setProjection('planar')">Force Planar (Identity)</button>
+        <button class="debug" onclick="setProjection('spherical')">Force Spherical (Natural)</button>
+        <button class="debug" onclick="toggleReflect()">Toggle Reflect Y</button>
+    </div>
+</div>
+
+<div id="workbench">
+    <div style="opacity:0.5;">Select a Test Case</div>
+</div>
+
+<div id="log">Waiting...</div>
+
+<script>
+    // --- GLOBAL STATE ---
+    let mapData = [], pinchData = [];
+    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Map State
+    let currentFeatures = null;
+    let currentReflect = true; // Default for SVGs
+    let currentMode = 'planar'; // Default to "dumb" fitting
+
+    // --- INIT ---
+    async function init() {
+        try {
+            const pRaw = await d3.csv("pinch_questions.csv");
+            pinchData = pRaw.map(d => ({...d, id: d.question_id || d.ID}));
+            const mRaw = await d3.csv("map_questions.csv");
+            mapData = mRaw.map(d => ({...d, id: d.question_id || d.ID}));
+            log("Data Loaded.");
+        } catch(e) { log("Error: " + e.message); }
+    }
+    init();
+
+    // --- MAP ENGINE ---
+    function loadMapCase(id) {
+        document.getElementById("mapTuner").style.display = "block";
+        const q = mapData.find(d => d.id === id);
+        if(!q) return log("Question not found");
+        
+        const box = document.getElementById("workbench");
+        box.innerHTML = `Loading ${q.geo_source}...`;
+
+        let url = q.geo_source + ".json";
+        d3.json(url).catch(err => {
+            if(q.geo_source.includes("world")) return d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+            if(q.geo_source.includes("states")) return d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json");
+            throw err;
+        }).then(topology => {
+            // Extract Features
+            const key = Object.keys(topology.objects).find(k => k.match(/state|countr|borough|unit/)) || Object.keys(topology.objects)[0];
+            let features = topojson.feature(topology, topology.objects[key]).features;
+
+            // Filter (The S. America Fix)
+            if(q.visible_ids) {
+                const whitelist = q.visible_ids.split(",").map(s => s.trim());
+                const prop = q.geo_feature_property || "name";
+                features = features.filter(f => whitelist.includes(f.properties[prop]));
+            }
+
+            currentFeatures = features;
+            renderMap();
+            log(`Loaded ${features.length} regions.`);
+        });
+    }
+
+    function renderMap() {
+        const box = document.getElementById("workbench");
+        box.innerHTML = "";
+        const width = 800, height = 500;
+        const svg = d3.select("#workbench").append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+
+        // THE MAP TUNER LOGIC
+        let projection;
+        if(currentMode === 'planar') {
+            // "Planar" treats coordinates as simple X/Y points (Fixes Pre-projected Albers & State Plane)
+            projection = d3.geoIdentity().reflectY(currentReflect).fitSize([width, height], {type:"FeatureCollection", features:currentFeatures});
+        } else {
+            // "Spherical" treats coordinates as Lat/Long (Fixes raw GeoJSON)
+            projection = d3.geoNaturalEarth1().fitSize([width, height], {type:"FeatureCollection", features:currentFeatures});
+        }
+        
+        const path = d3.geoPath().projection(projection);
+
+        svg.selectAll("path")
+            .data(currentFeatures)
+            .join("path")
+            .attr("d", path)
+            .attr("fill", "rgba(255,255,255,0.1)")
+            .attr("stroke", "white")
+            .attr("stroke-width", 1)
+            .on("click", function() {
+                d3.select(this).attr("fill", "#ffd700");
+            });
+            
+        log(`Rendered: ${currentMode} | ReflectY: ${currentReflect}`);
+    }
+
+    // Debug Buttons
+    window.setProjection = (mode) => { currentMode = mode; renderMap(); };
+    window.toggleReflect = () => { currentReflect = !currentReflect; renderMap(); };
+
+    // --- PINCH ENGINE ---
+    function loadPinchCase(id) {
+        document.getElementById("mapTuner").style.display = "none";
+        const q = pinchData.find(d => d.id === id);
+        
+        const box = document.getElementById("workbench");
+        box.innerHTML = `<div class="ppn-badge" id="ppnDisplay">0</div>`;
+        
+        const min = +q.min_value;
+        const max = +q.max_value;
+        const snap = +q.minor_tick || 1;
+        const majorTick = +q.major_tick || 10;
+        let l = +q.default_start, r = +q.default_end;
+        let lastSoundPpn = 0; // Track PPN for sound changes
+
+        const width = 700;
+        const x = d3.scaleLinear().domain([min, max]).range([0, width]);
+        
+        const svg = d3.select("#workbench").append("svg")
+            .attr("width", width+40).attr("height", 150)
+            .append("g").attr("transform", "translate(20,20)");
+
+        // Ticks
+        const axis = d3.axisBottom(x).tickValues(d3.range(min, max+snap, majorTick));
+        svg.append("g").attr("transform", "translate(0,80)").call(axis).style("color","white");
+
+        // Bar
+        const bar = svg.append("rect")
+            .attr("y", 20).attr("height", 60)
+            .attr("fill", "rgba(255,215,0,0.3)")
+            .attr("stroke", "gold").attr("stroke-width", 4)
+            .style("cursor", "grab");
+
+        let dragMode = null, startX=0, startL=0, startR=0;
+
+        function update() {
+            bar.attr("x", x(l)).attr("width", Math.max(10, x(r)-x(l)));
+            
+            // Calc PPN
+            const rangeSize = r - l;
+            const totalSize = max - min;
+            const pct = rangeSize / totalSize;
+            const ppn = Math.max(5, Math.round(100 - (pct * 100)));
+            
+            document.getElementById("ppnDisplay").innerText = ppn;
+            return ppn;
+        }
+
+        update();
+
+        // Drag Logic
+        bar.on("mousedown", function(e) {
+            const mx = d3.pointer(e)[0];
+            const bx = x(l), bw = x(r)-x(l);
+            
+            // Zone Detection
+            if(mx < bx + 20) dragMode = 'left';
+            else if(mx > bx + bw - 20) dragMode = 'right';
+            else dragMode = 'move';
+            
+            startX = mx; startL = l; startR = r;
+            d3.select(window).on("mousemove", onDrag).on("mouseup", stopDrag);
+        });
+
+        function onDrag(e) {
+            const currX = d3.pointer(e, svg.node())[0];
+            const deltaPx = currX - startX;
+            const valPerPx = (max - min) / width;
+            let deltaVal = deltaPx * valPerPx;
+
+            if(dragMode === 'move') {
+                let dl = startL + deltaVal;
+                let dr = startR + deltaVal;
+                // Clamp
+                if(dl < min) { dl=min; dr=min+(startR-startL); }
+                if(dr > max) { dr=max; dl=max-(startR-startL); }
+                l = Math.round(dl/snap)*snap;
+                r = Math.round(dr/snap)*snap;
+            } else if(dragMode === 'left') {
+                let dl = startL + deltaVal;
+                l = Math.round(dl/snap)*snap;
+                if(l > r-snap) l = r-snap;
+                if(l < min) l = min;
+            } else if(dragMode === 'right') {
+                let dr = startR + deltaVal;
+                r = Math.round(dr/snap)*snap;
+                if(r < l+snap) r = l+snap;
+                if(r > max) r = max;
+            }
+            
+            const currentPpn = update();
+            checkAudio(currentPpn);
+        }
+
+        function stopDrag() {
+            d3.select(window).on("mousemove", null).on("mouseup", null);
+        }
+        
+        // AUDIO FIX: PPN-BASED PITCH
+        function checkAudio(ppn) {
+            // Only play if PPN changed (or significant movement occurred)
+            // But user requested "1 click per unit". 
+            // We can check if value changed by 'snap' amount.
+            // Let's use PPN change for pitch reference.
+            
+            // To detect "movement", check if l or r changed from last frame
+            // We need a persistent tracker. Let's just track PPN for pitch.
+            // But we need to track POSITION for the "Click" trigger.
+            
+            // Simple approach: Trigger on every PPN change? 
+            // No, user wants clicks on movement. 
+            // Let's cheat: trigger click every time update() is called? Too fast.
+            // Trigger if (l != prevL || r != prevR).
+            
+            if(l !== window.prevL || r !== window.prevR) {
+                playTick(ppn);
+                window.prevL = l; 
+                window.prevR = r;
+            }
+        }
+    }
+
+    function playTick(ppn) {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "square";
+        
+        // PITCH FORMULA: 
+        // Low PPN (5) = Low Pitch (200Hz)
+        // High PPN (100) = High Pitch (1000Hz)
+        const freq = 200 + (ppn * 8); 
+        
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.03);
+        osc.stop(audioCtx.currentTime + 0.03);
+    }
+
+    function log(msg) { document.getElementById("log").innerHTML += `> ${msg}<br>`; }
+</script>
+
+</body>
+</html>

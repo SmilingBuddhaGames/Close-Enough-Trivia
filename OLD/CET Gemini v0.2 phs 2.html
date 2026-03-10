@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLOSE ENOUGH TRIVIA - PHASE 2</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* --- THEME ENGINE --- */
+:root { --gold: #ffd700; --purple-deep: #110025; --bg-gradient: linear-gradient(150deg, #5a0a9e 0%, #1a0035 60%, #0d001f 100%); }
+body { margin: 0; font-family: 'Barlow', sans-serif; background: var(--bg-gradient); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+#app { width: 95%; max-width: 800px; padding: 30px; text-align: center; }
+
+h1 { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); text-transform: uppercase; margin-bottom: 20px; }
+
+/* --- LOGGER UI --- */
+#bootLog {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: #00ff00;
+    background: rgba(0,0,0,0.85);
+    padding: 20px;
+    border-radius: 8px;
+    text-align: left;
+    border: 1px solid rgba(255,255,255,0.2);
+    min-height: 300px;
+    max-height: 500px;
+    overflow-y: auto;
+    white-space: pre-wrap; /* Keeps formatting */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.error { color: #ff5555; font-weight: bold; }
+.warn { color: #ffaa00; }
+.success { color: #00ff00; font-weight: bold; }
+.info { color: #aaa; }
+
+button {
+    margin-top: 20px;
+    padding: 15px 30px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 20px;
+    background: var(--gold);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    display: none; /* Hidden until loaded */
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+    <h1>System Diagnostic</h1>
+    <div id="bootLog">Initializing Data Loader...</div>
+    <button onclick="alert('Phase 3 (Game Engine) coming next!')">PROCEED TO GAME</button>
+</div>
+
+<script>
+    // --- LOGGER ---
+    const logger = document.getElementById("bootLog");
+    function log(msg, type="info") {
+        logger.innerHTML += `<span class="${type}">> ${msg}</span>\n`;
+        logger.scrollTop = logger.scrollHeight;
+    }
+
+    // --- MAIN LOADER ---
+    window.onload = async function() {
+        log("Checking environment...", "info");
+        
+        if(typeof d3 === 'undefined') { log("CRITICAL: D3.js not found.", "error"); return; }
+        
+        try {
+            // 1. PINCH DATA
+            log("Fetching pinch_questions.csv...", "info");
+            const pinch = await d3.csv("pinch_questions.csv");
+            log(`  - Found ${pinch.length} rows.`, "success");
+            
+            // Validate Pinch Headers (ID vs question_id)
+            if(pinch.length > 0) {
+                const sample = pinch[0];
+                if(sample.ID) log("  - Note: Using 'ID' column (Normalizing to question_id).", "warn");
+                if(sample.major_tick) log("  - Detected advanced Ruler Config (major_tick).", "success");
+            }
+
+            // 2. MAP DATA
+            log("Fetching map_questions.csv...", "info");
+            const map = await d3.csv("map_questions.csv");
+            log(`  - Found ${map.length} rows.`, "success");
+
+            // Validate Map Config
+            if(map.length > 0) {
+                const sample = map[0];
+                if(sample.max_selectable) log(`  - Detected Selection Limit logic (Max: ${sample.max_selectable}).`, "success");
+                if(sample.projection) log(`  - Detected Projection logic (${sample.projection}).`, "success");
+                
+                // Check for required map files (Logic check only)
+                const sources = [...new Set(map.map(d => d.geo_source))];
+                log(`  - REQUIRED JSON FILES: ${sources.join(", ")}.json`, "warn");
+            }
+
+            // 3. BONUS DATA
+            log("Fetching bonus_questions.csv...", "info");
+            const bonus = await d3.csv("bonus_questions.csv");
+            log(`  - Found ${bonus.length} rows.`, "success");
+            
+            // Validate Bonus
+            if(bonus.length > 0) {
+                // Check if parsing works
+                const sample = bonus[0];
+                let choices = 0;
+                for(let i=1; i<=14; i++) {
+                    if(sample[`choice_${i}_text`]) choices++;
+                }
+                log(`  - Parsed ${choices} choices for first question.`, "success");
+            }
+
+            // FINAL REPORT
+            const total = pinch.length + map.length + bonus.length;
+            log(`\n---------------------------------`, "info");
+            log(`DATA LOADED OK. Total Questions: ${total}`, "success");
+            log(`Ready for Phase 3 (The Game Engine).`, "success");
+            
+            document.querySelector("button").style.display = "inline-block";
+
+        } catch (err) {
+            log(`\nFATAL ERROR: ${err.message}`, "error");
+            log("Make sure all 3 .csv files are in this folder.", "error");
+        }
+    };
+</script>
+
+</body>
+</html>

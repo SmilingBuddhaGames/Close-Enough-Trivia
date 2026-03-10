@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CLOSE ENOUGH TRIVIA</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+:root{
+--gold:#ffd700;
+--gold-dark:#9a6800;
+--gold-mid:#e6a800;
+--purple-deep:#110025;
+--purple-mid:#3a007a;
+--purple-bright:#6a0dad;
+}
+
+*{box-sizing:border-box;}
+
+body{
+margin:0;
+font-family:'Barlow','Trebuchet MS',sans-serif;
+font-weight:400;
+background:linear-gradient(150deg,#5a0a9e 0%,#1a0035 60%,#0d001f 100%);
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+min-height:100vh;
+overflow-x:hidden;
+}
+
+/* Ambient glow */
+body::before{
+content:'';
+position:fixed;
+top:-10%;
+left:50%;
+transform:translateX(-50%);
+width:90vw;
+height:70vw;
+background:radial-gradient(ellipse,rgba(130,40,220,0.18) 0%,transparent 65%);
+pointer-events:none;
+z-index:0;
+}
+
+#app{
+width:95%;
+max-width:1200px;
+position:relative;
+z-index:1;
+padding:30px 0;
+animation:fadeIn 0.35s ease;
+}
+
+@keyframes fadeIn{
+from{opacity:0;transform:translateY(10px);}
+to{opacity:1;transform:translateY(0);}
+}
+
+.screen{
+display:flex;
+gap:0;
+min-height:72vh;
+}
+
+.info{
+flex:1;
+display:flex;
+flex-direction:column;
+justify-content:center;
+padding:30px 40px 30px 10px;
+border-right:1px solid rgba(255,255,255,0.1);
+}
+
+.action{
+flex:1;
+display:flex;
+flex-direction:column;
+justify-content:flex-start;
+gap:16px;
+align-items:center;
+padding:30px 10px 30px 40px;
+}
+
+/* TYPOGRAPHY */
+h1{
+font-family:'Oswald','Trebuchet MS',sans-serif;
+font-size:54px;
+font-weight:700;
+margin:0 0 16px 0;
+letter-spacing:2px;
+text-transform:uppercase;
+color:var(--gold);
+text-shadow:0 0 40px rgba(255,215,0,0.35),0 3px 0 rgba(0,0,0,0.4);
+line-height:1.05;
+}
+
+h2{
+font-family:'Oswald','Trebuchet MS',sans-serif;
+font-size:26px;
+font-weight:600;
+margin:0 0 16px 0;
+line-height:1.35;
+letter-spacing:0.3px;
+}
+
+.q-label{
+font-family:'Oswald',sans-serif;
+font-size:13px;
+font-weight:600;
+letter-spacing:3px;
+text-transform:uppercase;
+color:rgba(255,215,0,0.65);
+margin-bottom:10px;
+}
+
+.hint{
+font-size:15px;
+font-style:italic;
+color:rgba(255,255,255,0.6);
+margin-top:12px;
+line-height:1.5;
+}
+
+/* BUTTONS */
+button{
+padding:13px 28px;
+font-family:'Oswald','Trebuchet MS',sans-serif;
+font-size:17px;
+font-weight:600;
+letter-spacing:1.5px;
+text-transform:uppercase;
+border:none;
+border-radius:10px;
+background:linear-gradient(to bottom,#ffd700,#e09800);
+color:#160030;
+cursor:pointer;
+box-shadow:0 5px 0 var(--gold-dark),0 8px 20px rgba(0,0,0,0.35);
+transition:all .12s ease;
+white-space:nowrap;
+}
+
+button:hover{
+transform:translateY(-2px);
+box-shadow:0 7px 0 var(--gold-dark),0 12px 28px rgba(0,0,0,0.4);
+background:linear-gradient(to bottom,#ffe033,#f5b200);
+}
+
+button:active{
+transform:translateY(4px);
+box-shadow:0 2px 0 var(--gold-dark),0 4px 8px rgba(0,0,0,0.2);
+}
+
+button:disabled {
+    filter: grayscale(1);
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* PPN BOX */
+.ppn{
+width:100%;
+margin-top:16px;
+padding:16px 20px;
+background:rgba(255,255,255,0.055);
+border:1px solid rgba(255,255,255,0.1);
+border-radius:14px;
+text-align:center;
+font-size:16px;
+font-weight:500;
+color:rgba(255,255,255,0.8);
+backdrop-filter:blur(4px);
+}
+
+.ppn span{
+font-family:'Oswald','Trebuchet MS',sans-serif;
+font-size:40px;
+font-weight:700;
+color:var(--gold);
+text-shadow:0 0 16px rgba(255,215,0,0.55);
+display:block;
+margin-top:3px;
+line-height:1;
+}
+
+.turn-indicator{
+display:inline-block;
+margin-bottom:18px;
+padding:5px 16px;
+font-family:'Oswald',sans-serif;
+font-size:13px;
+font-weight:700;
+letter-spacing:2px;
+text-transform:uppercase;
+color:#160030;
+background:var(--gold);
+border-radius:20px;
+}
+
+.center-screen{
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+text-align:center;
+min-height:65vh;
+gap:24px;
+}
+
+.title-btns{
+display:flex;
+gap:16px;
+flex-wrap:wrap;
+justify-content:center;
+margin-top:8px;
+}
+
+.score-card{
+background:rgba(255,255,255,0.06);
+border:1px solid rgba(255,255,255,0.13);
+border-radius:16px;
+padding:22px 28px;
+margin:14px 0;
+font-size:19px;
+line-height:1.7;
+width:100%;
+max-width:600px;
+}
+
+.score-card .pts-won{
+font-family:'Oswald',sans-serif;
+font-size:30px;
+font-weight:700;
+color:var(--gold);
+text-shadow:0 0 10px rgba(255,215,0,0.4);
+}
+
+.score-card .no-pts{
+font-size:20px;
+opacity:0.75;
+}
+
+.score-label{
+font-family:'Oswald',sans-serif;
+font-size:20px;
+font-weight:600;
+letter-spacing:0.5px;
+margin-top:8px;
+}
+
+.answer-wrap{
+display:flex;
+flex-direction:column;
+align-items:center;
+text-align:center;
+width:100%;
+padding:20px 0;
+animation:fadeIn 0.3s ease;
+}
+
+.ruler-wrap{
+width:100%;
+background:rgba(0,0,0,0.2);
+border:1px solid rgba(255,255,255,0.08);
+border-radius:12px;
+padding:8px 0 4px 0;
+margin-bottom:8px;
+}
+
+/* BONUS LIST STYLING */
+.bonus-name{
+padding:7px 10px;
+margin:3px 0;
+border-radius:8px;
+transition:background 0.12s;
+font-size:17px;
+cursor:pointer;
+}
+
+.bonus-grid{
+  width:100%;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:6px 20px;
+}
+
+@media (max-width: 700px){
+  .bonus-grid{
+    grid-template-columns: 1fr;
+  }
+}
+.bonus-name:hover{
+background:rgba(255,255,255,0.07);
+}
+
+.bonus-name input[type=checkbox]{
+accent-color:var(--gold);
+width:16px;
+height:16px;
+margin-right:10px;
+cursor:pointer;
+vertical-align:middle;
+}
+
+/* MAP STYLING */
+.map-container {
+    width: 100%;
+    height: 300px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+.map-tooltip {
+    position: absolute;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+
+/* ================= AUDIO ================= */
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+
+function playClick(ppn){
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.type = "square"
+    const minFreq = 500
+    const maxFreq = 1800
+    let scaled = minFreq + (ppn / 100) * (maxFreq - minFreq)
+    osc.frequency.value = scaled
+    osc.connect(gain)
+    gain.connect(audioCtx.destination)
+    const now = audioCtx.currentTime
+    gain.gain.setValueAtTime(0.001, now)
+    gain.gain.linearRampToValueAtTime(0.4, now + 0.002)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045)
+    osc.start(now)
+    osc.stop(now + 0.045)
+}
+
+function playTone(f1,f2,dur,type){
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    let o=audioCtx.createOscillator()
+    let g=audioCtx.createGain()
+    o.type=type
+    o.frequency.setValueAtTime(f1,audioCtx.currentTime)
+    o.frequency.linearRampToValueAtTime(f2,audioCtx.currentTime+dur)
+    o.connect(g)
+    g.connect(audioCtx.destination)
+    o.start()
+    g.gain.setValueAtTime(0.3,audioCtx.currentTime)
+    g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur)
+    o.stop(audioCtx.currentTime+dur)
+}
+
+function playHappy(){ playTone(600,900,0.3,"triangle") }
+function playSad(){ playTone(400,200,0.35,"sawtooth") }
+function playNeutralBell(){
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime
+    const baseFreq = 175
+    const upperFreq = baseFreq * 2
+    let osc1 = audioCtx.createOscillator()
+    let gain1 = audioCtx.createGain()
+    osc1.type = "sine"
+    osc1.frequency.value = baseFreq
+    osc1.connect(gain1)
+    gain1.connect(audioCtx.destination)
+    gain1.gain.setValueAtTime(0.0001, now)
+    gain1.gain.linearRampToValueAtTime(0.25, now + 0.01)
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.12)
+    osc1.start(now)
+    osc1.stop(now + 0.12)
+    let osc2 = audioCtx.createOscillator()
+    let gain2 = audioCtx.createGain()
+    osc2.type = "sine"
+    osc2.frequency.value = upperFreq
+    osc2.connect(gain2)
+    gain2.connect(audioCtx.destination)
+    let start2 = now + 0.05
+    gain2.gain.setValueAtTime(0.0001, start2)
+    gain2.gain.linearRampToValueAtTime(0.28, start2 + 0.01)
+    gain2.gain.exponentialRampToValueAtTime(0.0001, start2 + 0.22)
+    osc2.start(start2)
+    osc2.stop(start2 + 0.22)
+}
+function playTurnBell(){
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime
+    const baseFreq = 700   
+    const upperFreq = baseFreq * 2  
+    let osc1 = audioCtx.createOscillator()
+    let gain1 = audioCtx.createGain()
+    osc1.type = "sine"
+    osc1.frequency.value = baseFreq
+    osc1.connect(gain1)
+    gain1.connect(audioCtx.destination)
+    gain1.gain.setValueAtTime(0.0001, now)
+    gain1.gain.linearRampToValueAtTime(0.25, now + 0.01)
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.12)
+    osc1.start(now)
+    osc1.stop(now + 0.12)
+    let osc2 = audioCtx.createOscillator()
+    let gain2 = audioCtx.createGain()
+    osc2.type = "sine"
+    osc2.frequency.value = upperFreq
+    osc2.connect(gain2)
+    gain2.connect(audioCtx.destination)
+    let start2 = now + 0.05
+    gain2.gain.setValueAtTime(0.0001, start2)
+    gain2.gain.linearRampToValueAtTime(0.28, start2 + 0.01)
+    gain2.gain.exponentialRampToValueAtTime(0.0001, start2 + 0.22)
+    osc2.start(start2)
+    osc2.stop(start2 + 0.22)
+}
+function playTurnBellLow(){
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime
+    const baseFreq = 350   
+    const upperFreq = baseFreq * 2
+    let osc1 = audioCtx.createOscillator()
+    let gain1 = audioCtx.createGain()
+    osc1.type = "sine"
+    osc1.frequency.value = baseFreq
+    osc1.connect(gain1)
+    gain1.connect(audioCtx.destination)
+    gain1.gain.setValueAtTime(0.0001, now)
+    gain1.gain.linearRampToValueAtTime(0.25, now + 0.01)
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.12)
+    osc1.start(now)
+    osc1.stop(now + 0.12)
+    let osc2 = audioCtx.createOscillator()
+    let gain2 = audioCtx.createGain()
+    osc2.type = "sine"
+    osc2.frequency.value = upperFreq
+    osc2.connect(gain2)
+    gain2.connect(audioCtx.destination)
+    let start2 = now + 0.05
+    gain2.gain.setValueAtTime(0.0001, start2)
+    gain2.gain.linearRampToValueAtTime(0.28, start2 + 0.01)
+    gain2.gain.exponentialRampToValueAtTime(0.0001, start2 + 0.22)
+    osc2.start(start2)
+    osc2.stop(start2 + 0.22)
+}
+function playArpeggio(baseFreq){
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime
+    const third = baseFreq * Math.pow(2, 4/12)
+    const fifth = baseFreq * Math.pow(2, 7/12)
+    const notes = [baseFreq, third, fifth]
+    notes.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator()
+        const gain = audioCtx.createGain()
+        osc.type = "triangle" 
+        osc.frequency.value = freq
+        osc.connect(gain)
+        gain.connect(audioCtx.destination)
+        const start = now + (i * 0.07)
+        gain.gain.setValueAtTime(0.0001, start)
+        gain.gain.linearRampToValueAtTime(0.25, start + 0.01)
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.25)
+        osc.start(start)
+        osc.stop(start + 0.25)
+    })
+}
+
+/* --- DYNAMIC DATA LOADER --- */
+let masterQuestionPool = [];
+
+async function initDynamicGame() {
+    try {
+        const [pinch, map, bonus] = await Promise.all([
+            d3.csv("pinch_questions.csv"),
+            d3.csv("map_questions.csv"),
+            d3.csv("bonus_questions.csv")
+        ]);
+
+        const p = pinch.map(d => ({...d, type: 'pinch'}));
+        const m = map.map(d => ({...d, type: 'map'}));
+        const b = bonus.map(d => ({...d, type: 'bonus'}));
+
+        // Concatenate all questions
+        masterQuestionPool = [...p, ...m, ...b];
+        showTitle(); 
+    } catch (err) {
+        console.error("Error: Could not read CSVs.", err);
+        document.getElementById('app').innerHTML = `<div class="center-screen"><h3>Error Loading Data</h3><p>Make sure you are running this on a local server (not just opening the file) and that .csv files are in the same folder.</p></div>`
+    }
+}
+
+function formatBonusChoices(qData) {
+    let choices = [];
+    for (let i = 1; i <= 14; i++) {
+        let text = qData[`choice_${i}_text`];
+        let correct = qData[`choice_${i}_correct`];
+        if (text && text.trim() !== "") {
+            choices.push({ text: text, isCorrect: (String(correct).toLowerCase().trim() === 'true') });
+        }
+    }
+    return choices;
+}
+
+/* ================= ENGINE ================= */
+
+class Engine{
+    constructor(mode){
+        this.mode=mode
+        this.currentPlayer=1
+        this.scores=[0,0]
+        this.temp=[0,0]
+    }
+    pinchPPN(inclusive){
+        if(inclusive===1) return 100
+        let p=100-inclusive
+        if(p<5) p=5
+        return p
+    }
+    commit(points){
+        if(this.mode===1){
+            this.scores[0]+=points
+            return {done:true}
+        }else{
+            this.temp[this.currentPlayer-1]=points
+            if(this.currentPlayer===1){
+                this.currentPlayer=2
+                return {waiting:true}
+            }else{
+                let p1=this.temp[0]
+                let p2=this.temp[1]
+                this.scores[0]+=p1
+                this.scores[1]+=p2
+                this.temp=[0,0]
+                this.currentPlayer=1
+                return {done:true,p1Round:p1,p2Round:p2}
+            }
+        }
+    }
+}
+
+let engine=null
+let currentQuestion=1
+const app=document.getElementById("app")
+
+/* ================= FLOW ================= */
+
+function showTitle(){
+    app.innerHTML=`
+    <div class="center-screen">
+    <div>
+    <div style="font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,215,0,0.6);margin-bottom:14px;">For Both Nerds & Normies, it's...</div>
+    <h1>Close Enough<br>Trivia</h1>
+    <div style="font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;color:rgba(255,255,255,0.35);margin-top:8px;">PROTOTYPE</div>
+    </div>
+    <div class="title-btns">
+    <button onclick="startGame(1)">1 Player</button>
+    <button onclick="startGame(2)">2 Players</button>
+    </div>
+    </div>
+    `
+}
+
+function startGame(mode) {
+    playArpeggio(440);
+    engine = new Engine(mode);
+    // Shuffle and pick 6
+    engine.gameSession = d3.shuffle(masterQuestionPool).slice(0, 6);
+    currentQuestion = 1;
+    showInstructions();
+}
+
+function showInstructions(){
+    app.innerHTML=`
+    <div class="center-screen">
+    <div style="max-width:560px;">
+    <div style="font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:3px;color:rgba(255,215,0,0.6);margin-bottom:20px;text-transform:uppercase;">How to Play</div>
+    <div style="font-size:22px;line-height:1.7;font-weight:300;">
+    You don't have to be exactly right, just <em style="font-style:italic;font-weight:600;color:var(--gold);">CLOSE ENOUGH</em>.<br><br>
+    Pick a range of answers, and if the correct answer is inside your range, you get points!
+    </div>
+    </div>
+    <button onclick="beginGame()">I get it, let's play</button>
+    </div>
+    `
+}
+
+function beginGame(){
+    const higher = 440 * Math.pow(2, 2/12);
+    playArpeggio(higher);
+    currentQuestion = 1;
+    if(engine.mode === 1) continueTurn(); 
+    else showPlayerTurn();
+}
+
+function showPlayerTurn() {
+    app.innerHTML=`
+    <div class="center-screen">
+        <div style="font-family:'Oswald',sans-serif;font-size:30px;color:var(--gold);">PLAYER ${engine.currentPlayer}</div>
+        <div style="font-size:18px;opacity:0.7;">Get Ready...</div>
+        <button onclick="continueTurn()">Start Turn</button>
+    </div>
+    `;
+}
+
+function continueTurn() {
+    playTurnBell();
+    const q = engine.gameSession[currentQuestion - 1]; 
+
+    if (q.type === 'pinch') {
+        renderPinch({
+            questionText: `QUESTION ${currentQuestion}: ${q.question_text}`,
+            minVal: Number(q.min_value),
+            maxVal: Number(q.max_value),
+            correctVal: Number(q.true_value),
+            startLeft: Number(q.default_start),
+            startRight: Number(q.default_end),
+            majorTick: Number(q.major_tick) || 10,
+            minorTick: Number(q.minor_tick) || 1,
+            labelInterval: Number(q.label_interval) || 10
+        }, handleNext);
+    }
+    else if (q.type === 'map') {
+        renderMap({
+            questionText: `QUESTION ${currentQuestion}: ${q.question_text}`,
+            geoSource: q.geo_source,
+            projectionType: q.projection,
+            correctId: q.correct_ids, // Correct answer
+            visibleIds: q.visible_ids ? q.visible_ids.split(',') : [],
+            property: q.geo_feature_property || "name"
+        }, handleNext);
+    }
+    else if (q.type === 'bonus') {
+        renderBonusRound({
+            questionText: q.question_text,
+            hintText: q.hint_text,
+            choices: formatBonusChoices(q)
+        }, handleNext);
+    }
+}
+
+function handleNext() {
+    currentQuestion++;
+    if (currentQuestion > 6) {
+        showFinalScore();
+    } else {
+        if (engine.mode === 2) {
+            showPlayerTurn();
+        } else {
+            continueTurn();
+        }
+    }
+}
+
+function showFinalScore(){
+    let msg = "";
+    if(engine.mode === 1){
+        msg = `You scored ${engine.scores[0]} points!`;
+    } else {
+        if(engine.scores[0] > engine.scores[1]) msg = "Player 1 Wins!";
+        else if(engine.scores[1] > engine.scores[0]) msg = "Player 2 Wins!";
+        else msg = "It's a Tie!";
+    }
+
+    app.innerHTML=`
+    <div class="center-screen">
+        <h1>GAME OVER</h1>
+        <div style="font-size:24px;">${msg}</div>
+        <div class="score-card" style="margin-top:20px;">
+            P1: ${engine.scores[0]} &nbsp; | &nbsp; P2: ${engine.scores[1]}
+        </div>
+        <div class="title-btns">
+        <button onclick="showTitle()">Play Again</button>
+        </div>
+    </div>
+    `;
+}
+
+/* ================= ANSWER ================= */
+
+function showAnswer(text,points,correct,result,next){
+    app.innerHTML=`
+    <div class="answer-wrap">
+    <h2 style="margin-bottom:8px;">${text}</h2>
+    <div class="score-card">
+    ${
+    engine.mode===1
+    ? `<div class="${correct?'pts-won':'no-pts'}">${correct?'You won '+points+' points!':'Sorry, you won no points.'}</div>
+    <div class="score-label" style="margin-top:12px;opacity:0.7;">Your total score: ${engine.scores[0]}</div>`
+    : `<div style="opacity:0.8;font-size:17px;">Player 1 earned <strong style="color:var(--gold)">${result.p1Round}</strong> pts &nbsp;·&nbsp; Player 2 earned <strong style="color:var(--gold)">${result.p2Round}</strong> pts</div>
+    <div class="score-label" style="margin-top:12px;">PLAYER 1: ${engine.scores[0]} &nbsp;|&nbsp; PLAYER 2: ${engine.scores[1]}</div>`
+    }
+    </div>
+    ${next?`<button onclick="${engine.mode===1?next.name+'()':'showPlayerTurn()'}">Continue</button>`:''}
+    </div>
+    `
+}
+
+/* ================= PINCH ENGINE (GENERIC) ================= */
+
+function renderPinch(config,next){
+
+    let {minVal, maxVal, startLeft, startRight, correctVal, questionText, majorTick, minorTick, labelInterval} = config
+    let left = startLeft
+    let right = startRight
+
+    let lastSoundVal = null
+    let isDragging = false
+
+    const MAX_WIDTH = 95 // Limit dragging too wide
+    const PAD = 40
+    const MINW = 6
+
+    app.innerHTML=`
+    <div class="screen">
+        <div class="info">
+            <div class="q-label">${questionText.split(':')[0]}</div>
+            <h2>${questionText.split(':').slice(1).join(':').trim()}</h2>
+            ${engine.mode===2?`<div class="turn-indicator">Player ${engine.currentPlayer}'s turn</div>`:''}
+            <div class="hint">Pick a range. Drag the edges to resize; drag the center to move.</div>
+        </div>
+
+        <div class="action">
+            <div class="ruler-wrap">
+                <svg id="ruler" style="width:100%;height:160px;"></svg>
+            </div>
+
+            <div class="ppn">
+                Selected: <span id="sel"></span><br>
+                Potential Points: <span id="ppn"></span>
+            </div>
+
+            <button onclick="submitPinch()">Submit Answer</button>
+        </div>
+    </div>
+    `
+
+    const svg=document.getElementById("ruler")
+    const width=svg.clientWidth
+    const usable=width-(PAD*2)
+    // Scale: pixels per unit value
+    const unit = usable / (maxVal - minVal)
+
+    // Render Ticks based on CSV intervals
+    // We use a safe loop to prevent browser crashes on large ranges
+    for(let v = minVal; v <= maxVal; v += minorTick){
+        let x = PAD + (v - minVal) * unit
+        
+        let tick = document.createElementNS("http://www.w3.org/2000/svg","line")
+        tick.setAttribute("x1",x)
+        tick.setAttribute("x2",x)
+        tick.setAttribute("stroke","white")
+        
+        // Major Tick (Label)
+        if(Math.abs(v % labelInterval) < 0.001 || v === minVal || v === maxVal){
+            tick.setAttribute("y1",40)
+            tick.setAttribute("y2",100)
+            tick.setAttribute("stroke-width", "2")
+            
+            let label=document.createElementNS("http://www.w3.org/2000/svg","text")
+            label.setAttribute("x",x)
+            label.setAttribute("y",30)
+            label.setAttribute("fill","white")
+            label.setAttribute("text-anchor","middle")
+            label.textContent = v
+            svg.appendChild(label)
+
+        } else if(Math.abs(v % majorTick) < 0.001) {
+            // Medium tick
+            tick.setAttribute("y1",60)
+            tick.setAttribute("y2",100)
+        } else {
+            // Minor tick
+            tick.setAttribute("y1",75)
+            tick.setAttribute("y2",100)
+            tick.setAttribute("opacity", "0.5")
+        }
+        svg.appendChild(tick)
+    }
+
+    const rect=document.createElementNS("http://www.w3.org/2000/svg","rect")
+    rect.setAttribute("fill","rgba(255,255,0,0.15)")
+    rect.setAttribute("stroke","yellow")
+    rect.setAttribute("stroke-width","3")
+    rect.setAttribute("y",45)
+    rect.setAttribute("height","55")
+    rect.setAttribute("cursor", "ew-resize")
+    svg.appendChild(rect)
+
+    function clamp(){
+        if(left < minVal) left = minVal
+        if(right > maxVal) right = maxVal
+        
+        // Ensure standard integer snapping for the logic
+        // (If your game supports decimals, remove Math.round here)
+        // left = Math.round(left)
+        // right = Math.round(right)
+    }
+
+    function update(){
+        clamp()
+        let size = right - left
+        // Visual width
+        let w = size * unit 
+        // Visual x
+        let x = PAD + (left - minVal) * unit
+        
+        // Minimum visual width so it's grabbable
+        if(w < MINW) {
+            w = MINW
+        }
+
+        rect.setAttribute("x",x)
+        rect.setAttribute("width",w)
+        
+        // Display Text
+        document.getElementById("sel").textContent = (left === right) ? left : `${left} - ${right}`
+        
+        // Points calculation (assuming size + 1 for inclusive integer counting)
+        // Adjust this if you want strictly distance based
+        let count = (right - left) + (minorTick >= 1 ? 0 : 0) // rough fix for range
+        // For game logic, we usually want "Spread". 
+        // 1990 to 1990 is spread 0 or size 1?
+        // Let's assume inclusive count for years:
+        let inclusiveCount = (right - left) + 1
+        
+        // However for calories (step 50), inclusive count is huge. 
+        // We should normalize score based on percentage of range?
+        // For now, let's stick to the engine logic but normalize:
+        // PPN = 100 - (percentage of total range used * 100)
+        
+        let rangePct = ((right - left) / (maxVal - minVal)) * 100
+        let p = Math.round(100 - rangePct)
+        if(p < 5) p = 5
+        
+        document.getElementById("ppn").textContent = p
+    }
+
+    update()
+
+    let mode, startX, startL, startR
+
+    rect.addEventListener("mousedown",e=>{
+        startX = e.clientX
+        startL = left
+        startR = right
+        isDragging = true
+        let r=rect.getBoundingClientRect()
+        let offset=e.clientX-r.left
+        // Drag zones
+        if(offset < 20) mode="left"
+        else if(offset > r.width - 20) mode="right"
+        else mode="move"
+        
+        document.addEventListener("mousemove",drag)
+        document.addEventListener("mouseup",stop)
+    })
+
+    function drag(e){
+        // Delta in units
+        let deltaPx = e.clientX - startX
+        let deltaUnits = deltaPx / unit
+        
+        // Snap to minorTick
+        // deltaUnits = Math.round(deltaUnits / minorTick) * minorTick
+
+        if(mode==="left"){
+            left = startL + deltaUnits
+            // Snap
+            left = Math.round(left / minorTick) * minorTick
+            if(left > right) left = right
+        }else if(mode==="right"){
+            right = startR + deltaUnits
+            right = Math.round(right / minorTick) * minorTick
+            if(right < left) right = left
+        }else{
+            let l = startL + deltaUnits
+            let r = startR + deltaUnits
+            // Snap
+            l = Math.round(l / minorTick) * minorTick
+            r = Math.round(r / minorTick) * minorTick
+            
+            // Boundary checks for move
+            if(l >= minVal && r <= maxVal){
+                left = l
+                right = r
+            }
+        }
+        update()
+
+        if(isDragging){
+            // Sound feedback
+            let referenceVal = (mode === "right") ? right : left
+            if(!lastSoundVal) lastSoundVal = referenceVal
+            
+            if(Math.abs(referenceVal - lastSoundVal) >= majorTick){
+                playClick(50) // neutral click
+                lastSoundVal = referenceVal
+            }
+        }
+    }
+
+    function stop(){
+        isDragging = false
+        document.removeEventListener("mousemove",drag)
+        document.removeEventListener("mouseup",stop)
+    }
+
+    window.submitPinch=function(){
+        let correct = (correctVal >= left && correctVal <= right)
+        let pts = correct ? Number(document.getElementById("ppn").textContent) : 0
+        let result = engine.commit(pts)
+
+        if(engine.mode===2 && result.waiting){
+            playTurnBellLow()
+            showPlayerTurn()
+            return
+        }
+
+        engine.mode===1?(correct?playHappy():playSad()):playNeutralBell()
+        currentQuestion++
+        showAnswer(
+            `The answer was: ${correctVal}.`,
+            pts,correct,result,next)
+    }
+}
+
+/* ================= MAP RENDERER (NEW) ================= */
+
+function renderMap(config, next) {
+    const { questionText, geoSource, projectionType, correctId, visibleIds, property } = config;
+
+    app.innerHTML = `
+    <div class="screen">
+        <div class="info">
+            <div class="q-label">${questionText.split(':')[0]}</div>
+            <h2>${questionText.split(':').slice(1).join(':').trim()}</h2>
+            ${engine.mode===2?`<div class="turn-indicator">Player ${engine.currentPlayer}'s turn</div>`:''}
+            <div class="hint">Click the correct region on the map.</div>
+        </div>
+
+        <div class="action">
+            <div class="map-container" id="mapBox"></div>
+            <div class="ppn">Potential Points: <span>20</span></div>
+            <button id="mapSubmit" disabled onclick="submitMap()">Select a Region</button>
+        </div>
+    </div>
+    `;
+
+    const width = 600;
+    const height = 400;
+    
+    // Create SVG
+    const svg = d3.select("#mapBox").append("svg")
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .attr("viewBox", `0 0 ${width} ${height}`);
+
+    let selectedFeature = null;
+
+    // Load Data
+    d3.json(geoSource + ".json").then(topology => {
+        // Assume the first object key is the feature collection (standard TopoJSON structure)
+        const objectKey = Object.keys(topology.objects)[0];
+        const features = topojson.feature(topology, topology.objects[objectKey]).features;
+
+        let projection;
+        if(projectionType === 'albersUsa') {
+            projection = d3.geoAlbersUsa().fitSize([width, height], {type: "FeatureCollection", features: features});
+        } else if(projectionType === 'mercator') {
+            projection = d3.geoMercator().fitSize([width, height], {type: "FeatureCollection", features: features});
+        } else {
+            projection = d3.geoNaturalEarth1().fitSize([width, height], {type: "FeatureCollection", features: features});
+        }
+
+        const path = d3.geoPath().projection(projection);
+
+        // Draw Features
+        svg.selectAll("path")
+            .data(features)
+            .enter().append("path")
+            .attr("d", path)
+            .attr("stroke", "rgba(255,255,255,0.2)")
+            .attr("stroke-width", 0.5)
+            .attr("fill", d => {
+                const name = d.properties[property];
+                // If visibleIds is strictly defined, dim others. 
+                // If visibleIds is empty or contains "all", show all.
+                if(visibleIds.length > 0 && !visibleIds.includes(name)) return "rgba(255,255,255,0.05)";
+                return "rgba(255,255,255,0.2)";
+            })
+            .style("cursor", d => {
+                 const name = d.properties[property];
+                 if(visibleIds.length > 0 && !visibleIds.includes(name)) return "default";
+                 return "pointer";
+            })
+            .on("click", function(event, d) {
+                const name = d.properties[property];
+                // Check if selectable
+                if(visibleIds.length > 0 && !visibleIds.includes(name)) return;
+
+                // Reset previous
+                svg.selectAll("path").attr("fill", f => {
+                    const fname = f.properties[property];
+                    if(visibleIds.length > 0 && !visibleIds.includes(fname)) return "rgba(255,255,255,0.05)";
+                    return "rgba(255,255,255,0.2)";
+                });
+
+                // Highlight this
+                d3.select(this).attr("fill", "var(--gold)");
+                selectedFeature = name;
+                
+                const btn = document.getElementById("mapSubmit");
+                btn.disabled = false;
+                btn.textContent = "Submit: " + name;
+                playClick(50);
+            });
+
+    }).catch(err => {
+        document.getElementById("mapBox").innerHTML = `<div style="padding:20px; text-align:center;">Error loading map file: ${geoSource}.json<br><small>${err}</small></div>`;
+    });
+
+    window.submitMap = function() {
+        const isCorrect = (selectedFeature === correctId);
+        // Simple scoring for map: 20 pts if correct
+        const pts = isCorrect ? 20 : 0;
+
+        const result = engine.commit(pts);
+
+        if(engine.mode===2 && result.waiting){
+            playTurnBellLow();
+            showPlayerTurn();
+            return;
+        }
+
+        engine.mode===1?(isCorrect?playHappy():playSad()):playNeutralBell();
+        
+        // Highlight correct one green/red? 
+        // For simplicity, just show answer screen.
+        currentQuestion++;
+        showAnswer(
+            `The answer was: ${correctId}`,
+            pts, isCorrect, result, next
+        );
+    }
+}
+
+/* ================= BONUS ROUND ================= */
+
+function renderBonusRound(config, next) {
+    const { questionText, hintText, choices } = config;
+
+    app.innerHTML = `
+    <div class="screen">
+        <div class="info">
+            <h2>${questionText}</h2>
+            <div class="hint">${hintText || ""}</div>
+        </div>
+
+        <div class="action">
+            <div id="bonusList" class="bonus-grid"></div>
+
+            <div class="ppn">
+                Potential Points: <span id="bonusPPN">0</span>
+            </div>
+
+            <button onclick="submitBonus()">Submit Answer</button>
+        </div>
+    </div>
+    `;
+
+    const list = document.getElementById("bonusList");
+
+    choices.forEach((c, i) => {
+        const div = document.createElement("div");
+        div.className = "bonus-name";
+        div.innerHTML = `
+            <label style="cursor:pointer; display:block; width:100%;">
+                <input type="checkbox" value="${i}">
+                ${c.text}
+            </label>
+        `;
+        list.appendChild(div);
+    });
+
+    function updatePPN() {
+        const count = document.querySelectorAll("#bonusList input:checked").length;
+        document.getElementById("bonusPPN").textContent = count * 20;
+        playClick(count * 5); 
+    }
+
+    list.addEventListener("change", updatePPN);
+
+    window.submitBonus = function() {
+        const checked = [...document.querySelectorAll("#bonusList input:checked")].map(cb => +cb.value);
+
+        let correctSelections = 0;
+        let incorrectChosen = false;
+
+        checked.forEach(i => {
+            if (choices[i].isCorrect) correctSelections++;
+            else incorrectChosen = true;
+        });
+
+        // 20 pts per correct answer, but 0 if ANY wrong are picked
+        let pts = (!incorrectChosen) ? correctSelections * 20 : 0;
+
+        const result = engine.commit(pts);
+
+        engine.mode === 1 ? (pts > 0 ? playHappy() : playSad()) : playNeutralBell();
+
+        showAnswer(
+            "Bonus Round Complete.",
+            pts,
+            pts > 0,
+            result,
+            next
+        );
+    };
+}
+
+function autoScaleApp(){
+  const appEl = document.getElementById("app")
+  appEl.style.transform = "scale(1)"
+  appEl.style.transformOrigin = "top center"
+  const rect = appEl.getBoundingClientRect()
+  const windowWidth = window.innerWidth
+  const windowHeight = window.innerHeight
+  const scaleX = windowWidth / rect.width
+  const scaleY = windowHeight / rect.height
+  let scale = Math.min(scaleX, scaleY)
+  if(scale > 1.4) scale = 1.4
+  appEl.style.transform = `scale(${scale})`
+}
+
+initDynamicGame()
+
+autoScaleApp()
+window.addEventListener("resize", autoScaleApp)
+
+</script>
+</body>
+</html>

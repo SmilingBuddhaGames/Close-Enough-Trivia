@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLOSE ENOUGH TRIVIA - REFACTORED</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* --- CORE STYLES (FROM YOUR WORKING VERSION) --- */
+:root{ --gold:#ffd700; --gold-dark:#9a6800; --purple-bg:#1a0035; }
+*{ box-sizing:border-box; }
+
+body {
+    margin: 0;
+    font-family: 'Barlow', sans-serif;
+    background: linear-gradient(150deg, #5a0a9e 0%, #1a0035 60%, #0d001f 100%);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+#app {
+    width: 95%;
+    max-width: 1000px;
+    padding: 20px;
+    text-align: center;
+}
+
+/* TYPOGRAPHY */
+h1 { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); text-transform: uppercase; margin-bottom: 10px; text-shadow: 0 0 30px rgba(255,215,0,0.4); }
+h2 { font-family: 'Oswald', sans-serif; font-size: 28px; font-weight: 600; margin-bottom: 20px; }
+.hint { font-style: italic; opacity: 0.7; font-size: 16px; margin-bottom:

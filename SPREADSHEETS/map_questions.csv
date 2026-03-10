@@ -1,0 +1,7 @@
+question_id,question_text,geo_source,projection,geo_feature_property,visible_ids,correct_ids,max_selectable,points_per_extra_unit,min_ppn,image_file,svg_file
+map_q_1,Which state is Wyoming?,us_states,albersUsa,name,"Washington,Oregon,Idaho,Montana,Wyoming,North Dakota,South Dakota,Nebraska,Colorado,Utah",Wyoming,9,10,10,,
+map_q_2,Which state is Missouri?,us_states,albersUsa,name,"Oklahoma,Kansas,Nebraska,South Dakota,Iowa,Illinois,Indiana,Missouri,Arkansas,Mississippi",Missouri,9,10,10,,
+map_q_3,Which country is Somalia?,world_countries,naturalEarth,name,"Somalia,Ethiopia,Djibouti,Eritrea,Kenya,South Sudan,Sudan,Tanzania,Egypt,Libya",Somalia,9,10,10,,
+map_q_4,Which country is Paraguay?,world_countries,naturalEarth,name,"Paraguay,Bolivia,Brazil,Uruguay,Argentina,Chile,Peru,Ecuador,Colombia,Venezuela",Paraguay,9,10,10,,
+map_q_5,Which part of New York City is Brooklyn?,nyc_boroughs,mercator,name,"Manhattan,The Bronx,Queens,Brooklyn,Staten Island",Brooklyn,4,25,25,,
+map_q_A,"Where on these blue jeans is the ""yoke""?",custom_image,,fill,,#72fe01,9,10,10,IMAGES/IMAGE QUESTIONS/map_q_A_jeans.png,IMAGES/IMAGE QUESTIONS/map_q_A_jeans.svg

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLOSE ENOUGH TRIVIA - V2 GOLD</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* --- VISUAL THEME --- */
+:root { --gold: #ffd700; --gold-dark: #9a6800; --bg-gradient: linear-gradient(150deg, #5a0a9e 0%, #1a0035 60%, #0d001f 100%); }
+body { margin: 0; font-family: 'Barlow', sans-serif; background: var(--bg-gradient); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow-x: hidden; }
+#app { width: 95%; max-width: 1100px; padding: 20px; text-align: center; }
+
+h1 { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); text-transform: uppercase; margin: 0 0 10px 0; text-shadow: 0 0 30px rgba(255,215,0,0.4); }
+h2 { font-family: 'Oswald', sans-serif; font-size: 26px; margin: 0 0 15px 0; }
+.hint { font-style: italic; opacity: 0.7; font-size: 16px; margin-bottom: 20px; }
+
+/* COMPONENTS */
+button {
+    padding: 15px 30px; font-family: 'Oswald', sans-serif; font-size: 20px; text-transform: uppercase;
+    border: none; border-radius: 8px; background: linear-gradient(to bottom, #ffd700, #e09800); color: #160030;
+    cursor: pointer; margin: 10px; box-shadow: 0 5px 0 var(--gold-dark); transition: transform 0.1s;
+}
+button:active { transform: translateY(4px); box-shadow: none; }
+button:disabled { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; }
+
+/* GAME CONTAINERS */
+.screen-container { display: flex; flex-wrap: wrap; background: rgba(0,0,0,0.25); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; min-height: 500px; }
+.left-panel { flex: 1; padding: 30px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid rgba(255,255,255,0.1); min-width: 300px; }
+.right-panel { flex: 1.5; padding: 30px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 300px; }
+
+/* MODULES */
+#mapBox { width: 100%; height: 400px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 20px; position: relative; }
+#rulerContainer { width: 100%; height: 180px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; }
+.ppn-display { font-family: 'Oswald', sans-serif; font-size: 36px; color: var(--gold); margin-bottom: 15px; }
+
+/* BONUS GRID */
+.bonus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; text-align: left; margin-bottom: 20px; }
+.bonus-item { background: rgba(255,255,255,0.1); padding: 12px; border-radius: 6px; cursor: pointer; transition: background 0.2s; display: block; }
+.bonus-item:hover { background: rgba(255,255,255,0.2); }
+.bonus-item input { margin-right: 10px; transform: scale(1.4); }
+
+/* LOGGER */
+#bootLog { font-family: monospace; color: #00ff00; background: rgba(0,0,0,0.8); padding: 15px; text-align: left; max-height: 200px; overflow-y: auto; margin-top: 20px; border-radius: 5px; }
+.error-msg { color: #ff5555; }
+</style>
+</head>
+<body>
+
+<div id="app">
+    <div id="loadingScreen">
+        <h1>System Loading...</h1>
+        <div id="bootLog">Initializing Shell...<br></div>
+    </div>
+</div>
+
+<script>
+// --- CORE LOGGING ---
+function log(msg, isError=false) {
+    const el = document.getElementById("bootLog");
+    if(el) {
+        el.innerHTML += `<div class="${isError?'error-msg':''}">${isError?'ERROR: ':'> '}${msg}</div>`;
+        el.scrollTop = el.scrollHeight;
+    }
+    if(isError) console.error(msg);
+}
+
+// --- GLOBAL STATE ---
+const state = {
+    questions: [], session: [], currentQIndex: 0,
+    scores: [0,0], currentPlayer: 1, mode: 1, tempScore: 0
+};
+let audioCtx = null;
+
+// --- STARTUP ---
+window.onload = async function() {
+    log("Window Loaded.");
+    
+    if(typeof d3 === 'undefined' || typeof topojson === 'undefined') {
+        log("Libraries Missing! Check internet.", true); return;
+    }
+
+    try {
+        log("Loading CSV Data...");
+        const [pinch, map, bonus] = await Promise.all([
+            d3.csv("pinch_questions.csv"),
+            d3.csv("map_questions.csv"),
+            d3.csv("bonus_questions.csv")
+        ]);
+
+        // Normalize Data
+        const pList = pinch.map(d => ({...d, type: 'pinch'}));
+        const mList = map.map(d => ({...d, type: 'map'}));
+        const bList = bonus.map(d => ({...d, type: 'bonus'}));
+
+        state.questions = [...pList, ...mList, ...bList];
+        
+        log(`Loaded ${state.questions.length} total questions.`);
+        log("Engine Ready.");
+        
+        // Switch to Title
+        renderTitleScreen();
+
+    } catch(err) {
+        log(`Load Failed: ${err.message}`, true);
+        log("Ensure .csv files are in the folder.", true);
+    }
+};
+
+// --- AUDIO ENGINE ---
+function initAudio() {
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playTone(type, freq, duration) {
+    if(!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+// --- SCREENS ---
+function renderTitleScreen() {
+    const app = document.getElementById("app");
+    app.innerHTML = `
+        <h1>Close Enough Trivia</h1>
+        <div class="hint">V2.0 STABLE BUILD</div>
+        <button onclick="startGame(1)">1 Player</button>
+        <button onclick="startGame(2)">2 Players</button>
+    `;
+}
+
+window.startGame = function(mode) {
+    initAudio(); 
+    playTone('sine', 440, 0.4);
+    
+    state.mode = mode;
+    state.currentPlayer = 1;
+    state.scores = [0,0];
+    state.currentQIndex = 0;
+    
+    // Simple Shuffle
+    state.session = d3.shuffle(state.questions).slice(0, 6);
+    
+    if(state.mode === 1) renderQuestion();
+    else renderReadyScreen();
+};
+
+function renderReadyScreen() {
+    document.getElementById("app").innerHTML = `
+        <h1>Player ${state.currentPlayer}</h1>
+        <h2>Get Ready...</h2>
+        <button onclick="renderQuestion()">Start Turn</button>
+    `;
+}
+
+window.renderQuestion = function() {
+    const q = state.session[state.currentQIndex];
+    if(!q) { renderGameOver(); return; }
+    
+    // Dispatch to correct renderer
+    if(q.type === 'pinch') setupPinch(q);
+    else if(q.type === 'map') setupMap(q);
+    else if(q.type === 'bonus') setupBonus(q);
+};
+
+// --- GAME LOGIC: PINCH ---
+function setupPinch(q) {
+    const app = document.getElementById("app");
+    app.innerHTML = `
+        <div class="screen-container">
+            <div class="left-panel">
+                <h2>${q.question_text || q.question_id}</h2>
+                <div class="hint">Adjust range to capture the answer.</div>
+            </div>
+            <div class="right-panel">
+                <div id="rulerContainer"></div>
+                <div class="ppn-display" id="ppn">0</div>
+                <button onclick="submitPinch()">Submit</button>
+            </div>
+        </div>
+    `;
+
+    // Parse Config from CSV
+    const min = +q.min_value;
+    const max = +q.max_value;
+    const startL = +q.default_start || min;
+    const startR = +q.default_end || max;
+    const correctVal = +q.true_value;
+    const majorTick = +q.major_tick || 10;
+    const labelInt = +q.label_interval || 10;
+
+    let l = startL, r = startR;
+
+    // Draw Ruler
+    const container = document.getElementById("rulerContainer");
+    const width = container.clientWidth;
+    const height = 180;
+    const svg = d3.select("#rulerContainer").append("svg").attr("width", "100%").attr("height", "100%");
+    
+    const x = d3.scaleLinear().domain([min, max]).range([20, width-20]);
+    
+    // Ticks
+    const axis = d3.axisBottom(x)
+        .tickValues(d3.range(min, max + 1, majorTick))
+        .tickFormat(d => d % labelInt === 0 ? d : "");
+
+    svg.append("g").attr("transform", "translate(0, 100)").call(axis).attr("color", "white").style("font-size", "12px");
+
+    // Range Bar
+    const bar = svg.append("rect")
+        .attr("y", 40).attr("height", 60)
+        .attr("fill", "rgba(255, 215, 0, 0.3)")
+        .attr("stroke", "gold").attr("stroke-width", 3);
+
+    function update() {
+        bar.attr("x", x(l)).attr("width", Math.max(10, x(r) - x(l)));
+        // Scoring: 100 - % of range used
+        const pct = (r - l) / (max - min);
+        const ppn = Math.max(5, Math.round(100 - (pct * 100)));
+        document.getElementById("ppn").innerText = `Range: ${Math.round(l)} - ${Math.round(r)} (Pts: ${ppn})`;
+        return ppn;
+    }
+
+    // Drag Logic
+    svg.on("mousemove", e => {
+        if(e.buttons !== 1) return;
+        const val = x.invert(d3.pointer(e)[0]);
+        // Snap to nearest integer (or majorTick if you prefer)
+        const snapped = Math.round(val);
+        
+        if(Math.abs(snapped - l) < Math.abs(snapped - r)) l = Math.max(min, Math.min(r, snapped));
+        else r = Math.min(max, Math.max(l, snapped));
+        update();
+    });
+
+    update();
+
+    window.submitPinch = function() {
+        const ppn = update();
+        const isCorrect = (correctVal >= l && correctVal <= r);
+        renderResult(isCorrect ? ppn : 0, isCorrect);
+    };
+}
+
+// --- GAME LOGIC: MAP ---
+function setupMap(q) {
+    const app = document.getElementById("app");
+    app.innerHTML = `
+        <div class="screen-container">
+            <div class="left-panel">
+                <h2>${q.question_text}</h2>
+                <div class="hint">Select up to ${q.max_selectable || "unlimited"} regions.</div>
+            </div>
+            <div class="right-panel">
+                <div id="mapBox">Loading Map...</div>
+                <div class="ppn-display" id="mapPPN">100</div>
+                <button onclick="submitMap()">Submit</button>
+            </div>
+        </div>
+    `;
+
+    // Load Map
+    let url = q.geo_source + ".json";
+    d3.json(url).catch(err => {
+        // Fallbacks
+        if(q.geo_source.includes("world")) return d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+        if(q.geo_source.includes("states")) return d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json");
+        throw err;
+    }).then(topology => {
+        const box = document.getElementById("mapBox");
+        box.innerHTML = "";
+        const width = box.clientWidth || 600;
+        const height = box.clientHeight || 400;
+
+        const svg = d3.select("#mapBox").append("svg")
+            .attr("viewBox", `0 0 ${width} ${height}`)
+            .style("width", "100%").style("height", "100%");
+
+        // Find features
+        const key = Object.keys(topology.objects).find(k => k.match(/state|countr|borough|unit/)) || Object.keys(topology.objects)[0];
+        const features = topojson.feature(topology, topology.objects[key]).features;
+
+        // UNIVERSAL PROJECTION FIX
+        const projection = d3.geoIdentity().reflectY(true).fitSize([width, height], {type: "FeatureCollection", features: features});
+        const path = d3.geoPath().projection(projection);
+
+        let selected = [];
+        const limit = +q.max_selectable || 99;
+        const visibleList = q.visible_ids ? q.visible_ids.split(",").map(s => s.trim()) : [];
+
+        // Render
+        svg.selectAll("path")
+            .data(features)
+            .join("path")
+            .attr("d", path)
+            .attr("fill", "rgba(255,255,255,0.1)")
+            .attr("stroke", "white")
+            .attr("stroke-width", 0.5)
+            .style("cursor", "pointer")
+            .on("click", function(e, d) {
+                const name = d.properties[q.geo_feature_property || "name"];
+                if(visibleList.length && !visibleList.includes(name)) return;
+
+                // Toggle Selection
+                if(selected.includes(name)) {
+                    selected = selected.filter(s => s !== name);
+                    d3.select(this).attr("fill", "rgba(255,255,255,0.1)");
+                } else {
+                    if(selected.length >= limit) return; // Enforce limit
+                    selected.push(name);
+                    d3.select(this).attr("fill", "#ffd700");
+                }
+                
+                // Update Score Display
+                const cost = +q.points_per_extra_unit || 10;
+                let pts = 100 - ((selected.length - 1) * cost);
+                if(selected.length === 0) pts = 0;
+                document.getElementById("mapPPN").innerText = Math.max(10, pts);
+                playTone('square', 800 + (selected.length*50), 0.1);
+            });
+
+        window.submitMap = function() {
+            const correctName = q.correct_ids; // Single correct answer from CSV
+            const isCorrect = selected.includes(correctName);
+            
+            // Calc Score
+            const cost = +q.points_per_extra_unit || 10;
+            let pts = 100 - ((selected.length - 1) * cost);
+            if(!isCorrect) pts = 0;
+            
+            renderResult(pts, isCorrect);
+        };
+
+    }).catch(err => {
+        document.getElementById("mapBox").innerHTML = "Map Error: " + err.message;
+    });
+}
+
+// --- GAME LOGIC: BONUS ---
+function setupBonus(q) {
+    const app = document.getElementById("app");
+    
+    let choices = [];
+    for(let i=1; i<=14; i++) {
+        if(q[`choice_${i}_text`]) {
+            choices.push({
+                text: q[`choice_${i}_text`],
+                isCorrect: q[`choice_${i}_correct`].toLowerCase() === 'true'
+            });
+        }
+    }
+
+    app.innerHTML = `
+        <div class="screen-container">
+            <div class="left-panel">
+                <h2>${q.question_text}</h2>
+                <div class="hint">${q.hint_text}</div>
+            </div>
+            <div class="right-panel">
+                <div class="bonus-grid">
+                    ${choices.map((c, i) => `
+                        <label class="bonus-item">
+                            <input type="checkbox" value="${i}"> ${c.text}
+                        </label>
+                    `).join('')}
+                </div>
+                <button onclick="submitBonus()">Submit</button>
+            </div>
+        </div>
+    `;
+
+    window.submitBonus = function() {
+        const inputs = document.querySelectorAll("input:checked");
+        let allCorrect = true;
+        let count = 0;
+        
+        inputs.forEach(inp => {
+            const idx = +inp.value;
+            if(choices[idx].isCorrect) count++;
+            else allCorrect = false; // MINEFIELD LOGIC
+        });
+
+        const pts = allCorrect ? (count * 20) : 0;
+        renderResult(pts, pts > 0);
+    };
+}
+
+// --- RESULT SCREEN ---
+function renderResult(pts, correct) {
+    const app = document.getElementById("app");
+    playTone(pts > 0 ? 'triangle' : 'sawtooth', pts > 0 ? 600 : 200, 0.4);
+
+    // Scoring Logic
+    if (state.mode === 1) {
+        state.scores[0] += pts;
+    } else {
+        if (state.currentPlayer === 1) {
+            state.tempScore = pts;
+            state.currentPlayer = 2;
+            renderReadyScreen(); return;
+        } else {
+            state.scores[0] += state.tempScore;
+            state.scores[1] += pts;
+            state.currentPlayer = 1;
+        }
+    }
+    
+    const q = state.session[state.currentQIndex];
+    const ans = q.true_value || q.correct_ids || q.answer_text || "See below";
+
+    app.innerHTML = `
+        <h1>${pts > 0 ? "YES!" : "NOPE"}</h1>
+        <h2>You got ${pts} Points</h2>
+        <div class="hint">Answer: ${ans}</div>
+        <button onclick="nextQuestion()">Continue</button>
+    `;
+}
+
+function nextQuestion() {
+    state.currentQIndex++;
+    if (state.currentQIndex >= state.session.length) {
+        renderGameOver();
+    } else {
+        if (state.mode === 2) renderReadyScreen();
+        else renderQuestion();
+    }
+}
+
+function renderGameOver() {
+    const app = document.getElementById("app");
+    let html = `<h1>GAME OVER</h1>`;
+    if(state.mode === 1) {
+        html += `<h2>Final Score: ${state.scores[0]}</h2>`;
+    } else {
+        const w = state.scores[0] > state.scores[1] ? "Player 1 Wins!" : "Player 2 Wins!";
+        html += `<h2>${w}</h2><p>P1: ${state.scores[0]} | P2: ${state.scores[1]}</p>`;
+    }
+    html += `<button onclick="location.reload()">Play Again</button>`;
+    app.innerHTML = html;
+}
+
+</script>
+</body>
+</html>

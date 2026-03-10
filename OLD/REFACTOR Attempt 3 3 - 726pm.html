@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLOSE ENOUGH TRIVIA - FIXED</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        /* BASE STYLES */
+        :root{ --gold:#ffd700; --gold-dark:#9a6800; --purple-bg:#1a0035; }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Barlow', sans-serif;
+            background: linear-gradient(150deg, #5a0a9e 0%, #1a0035 60%, #0d001f 100%);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #app {
+            width: 95%;
+            max-width: 1000px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        /* TYPOGRAPHY */
+        h1 { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); text-transform: uppercase; margin: 0 0 10px 0; text-shadow: 0 0 30px rgba(255,215,0,0.4); }
+        h2 { font-family: 'Oswald', sans-serif; font-size: 28px; font-weight: 600; margin: 0 0 20px 0; }
+        .hint { font-style: italic; opacity: 0.7; font-size: 16px; margin-bottom: 20px; }
+        
+        /* UI COMPONENTS */
+        button {
+            padding: 15px 32px;
+            font-family: 'Oswald', sans-serif;
+            font-size: 20px;
+            text-transform: uppercase;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(to bottom, #ffd700, #e09800);
+            color: #160030;
+            cursor: pointer;
+            box-shadow: 0 5px 0 var(--gold-dark);
+            margin: 10px;
+        }
+        button:active { transform: translateY(4px); box-shadow: none; }
+        button:disabled { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; }
+
+        .screen-container {
+            display: flex;
+            flex-wrap: wrap;
+            background: rgba(0,0,0,0.2);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            min-height: 500px;
+        }
+
+        .left-panel { flex: 1; padding: 30px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid rgba(255,255,255,0.1); min-width: 300px; }
+        .right-panel { flex: 1; padding: 30px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 300px; }
+
+        /* MAP AREA */
+        #mapBox { width: 100%; height: 350px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; position: relative; }
+        
+        /* PINCH AREA */
+        #rulerContainer { width: 100%; height: 160px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; }
+        .ppn-display { font-family: 'Oswald', sans-serif; font-size: 32px; color: var(--gold); margin-bottom: 15px; }
+
+        /* BONUS AREA */
+        .bonus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; text-align: left; margin-bottom: 20px; }
+        .bonus-item { background: rgba(255,255,255,0.1); padding: 10px 15px; border-radius: 6px; cursor: pointer; transition: background 0.2s; display: block; }
+        .bonus-item:hover { background: rgba(255,255,255,0.2); }
+        .bonus-item input { margin-right: 10px; transform: scale(1.3); vertical-align: middle; }
+
+        /* DEBUG TEXT */
+        #errorLog { color: #ff5555; font-family: monospace; font-size: 14px; margin-top: 20px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <div id="loadingScreen">
+            <h1>Loading Game...</h1>
+            <p>If this stays on screen, check the Console (F12) or the error log below.</p>
+            <div id="errorLog"></div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        // --- GLOBAL VARIABLES ---
+        const state = {
+            questions: [],
+            session: [],
+            currentQIndex: 0,
+            scores: [0, 0], 
+            currentPlayer: 1, 
+            mode: 1,
+            tempScore: 0
+        };
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // --- ERROR HANDLING ---
+        function logError(msg) {
+            console.error(msg);
+            const el = document.getElementById("errorLog");
+            if(el) el.innerText += "\n[Error]: " + msg;
+        }
+
+        // --- AUDIO ---
+        function playTone(type, freq, duration) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        // --- INIT ---
+        async function initGame() {
+            try {
+                if (typeof d3 === 'undefined') throw new Error("D3 Library not loaded.");
+                
+                // 1. Fetch CSVs
+                const [pinch, map, bonus] = await Promise.all([
+                    d3.csv("pinch_questions.csv"),
+                    d3.csv("map_questions.csv"),
+                    d3.csv("bonus_questions.csv")
+                ]);
+
+                // 2. Process Data
+                const pList = pinch.map(d => ({ ...d, type: 'pinch' }));
+                const mList = map.map(d => ({ ...d, type: 'map' }));
+                const bList = bonus.map(d => ({ ...d, type: 'bonus' }));
+
+                state.questions = [...pList, ...mList, ...bList];
+                
+                if(state.questions.length === 0) throw new Error("No questions found.");
+
+                // 3. Launch Title
+                renderTitleScreen();
+
+            } catch (err) {
+                logError(err.message + " (Check if .csv files are in the folder)");
+            }
+        }
+
+        // --- SCREENS ---
+
+        function renderTitleScreen() {
+            const app = document.getElementById("app");
+            app.innerHTML = `
+                <h1>Close Enough Trivia</h1>
+                <div class="hint">REBUILT VERSION</div>
+                <button onclick="window.startGame(1)">1 Player</button>
+                <button onclick="window.startGame(2)">2 Players</button>
+            `;
+        }
+
+        window.startGame = function(mode) {
+            state.mode = mode;
+            state.currentPlayer = 1;
+            state.scores = [0, 0];
+            state.currentQIndex = 0;
+            state.session = d3.shuffle(state.questions).slice(0, 6); // Pick 6
+            
+            playTone('sine', 440, 0.5);
+
+            if (state.mode === 1) renderQuestion();
+            else renderReadyScreen();
+        };
+
+        function renderReadyScreen() {
+            document.getElementById("app").innerHTML = `
+                <h1>Player ${state.currentPlayer}</h1>
+                <h2>Get Ready...</h2>
+                <button onclick="window.renderQuestion()">Start Turn</button>
+            `;
+        }
+
+        window.renderQuestion = function() {
+            const q = state.session[state.currentQIndex];
+            if (!q) {
+                renderGameOver();
+                return;
+            }
+            if (q.type === 'pinch') setupPinch(q);
+            else if (q.type === 'map') setupMap(q);
+            else if (q.type === 'bonus') setupBonus(q);
+        };
+
+        function renderResult(pts, correct) {
+            const app = document.getElementById("app");
+            
+            let msg = "";
+            let subMsg = "";
+
+            if (state.mode === 1) {
+                state.scores[0] += pts;
+                msg = correct ? "YES!" : "NOPE";
+                subMsg = correct ? `You got ${pts} Points!` : "No Points.";
+            } else {
+                if (state.currentPlayer === 1) {
+                    state.tempScore = pts;
+                    state.currentPlayer = 2;
+                    renderReadyScreen();
+                    return;
+                } else {
+                    state.scores[0] += state.tempScore;
+                    state.scores[1] += pts;
+                    msg = "ROUND COMPLETE";
+                    subMsg = `P1: ${state.tempScore} pts | P2: ${pts} pts`;
+                    state.currentPlayer = 1; 
+                }
+            }
+
+            playTone(pts > 0 ? 'triangle' : 'sawtooth', pts > 0 ? 600 : 200, 0.4);
+            const q = state.session[state.currentQIndex];
+            const ans = q.true_value || q.correct_ids || q.answer_text || "See below";
+
+            app.innerHTML = `
+                <h1>${msg}</h1>
+                <h2>${subMsg}</h2>
+                <div class="hint">Answer: ${ans}</div>
+                <button onclick="window.nextQuestion()">Continue</button>
+            `;
+        }
+
+        window.nextQuestion = function() {
+            state.currentQIndex++;
+            if (state.currentQIndex >= state.session.length) {
+                renderGameOver();
+            } else {
+                if (state.mode === 2) renderReadyScreen();
+                else renderQuestion();
+            }
+        };
+
+        function renderGameOver() {
+            let html = `<h1>Game Over</h1>`;
+            if (state.mode === 1) {
+                html += `<h2>Final Score: ${state.scores[0]}</h2>`;
+            } else {
+                let winner = state.scores[0] > state.scores[1] ? "Player 1 Wins!" : (state.scores[1] > state.scores[0] ? "Player 2 Wins!" : "It's a Tie!");
+                html += `<h2>${winner}</h2><p>P1: ${state.scores[0]} - P2: ${state.scores[1]}</p>`;
+            }
+            html += `<button onclick="window.location.reload()">Play Again</button>`;
+            document.getElementById("app").innerHTML = html;
+        }
+
+        // --- MECHANICS ---
+
+        function setupPinch(q) {
+            const app = document.getElementById("app");
+            app.innerHTML = `
+                <div class="screen-container">
+                    <div class="left-panel">
+                        <h2>${q.question_text}</h2>
+                        <div class="hint">Drag handles to set range.</div>
+                    </div>
+                    <div class="right-panel">
+                        <div id="rulerContainer"></div>
+                        <div class="ppn-display" id="ppn">0</div>
+                        <button onclick="window.submitPinch()">Submit</button>
+                    </div>
+                </div>
+            `;
+
+            const min = +q.min_value;
+            const max = +q.max_value;
+            const correctVal = +q.true_value;
+            let l = +q.default_start;
+            let r = +q.default_end;
+
+            // D3 Ruler
+            const width = document.getElementById("rulerContainer").clientWidth;
+            const svg = d3.select("#rulerContainer").append("svg").attr("width", "100%").attr("height", "100%");
+            const x = d3.scaleLinear().domain([min, max]).range([20, width - 20]);
+            
+            const axis = d3.axisBottom(x).ticks(5);
+            svg.append("g").attr("transform", "translate(0, 100)").call(axis).attr("color", "white");
+
+            const bar = svg.append("rect")
+                .attr("y", 40).attr("height", 60)
+                .attr("fill", "rgba(255, 215, 0, 0.3)")
+                .attr("stroke", "gold").attr("stroke-width", 3);
+
+            function update() {
+                bar.attr("x", x(l)).attr("width", Math.max(10, x(r) - x(l)));
+                const pct = (r - l) / (max - min);
+                const ppn = Math.max(5, Math.round(100 - (pct * 100)));
+                document.getElementById("ppn").innerText = `Range: ${Math.round(l)} - ${Math.round(r)} (Pts: ${ppn})`;
+                return ppn;
+            }
+
+            svg.on("mousemove", e => {
+                if (e.buttons !== 1) return;
+                const val = x.invert(d3.pointer(e)[0]);
+                if (Math.abs(val - l) < Math.abs(val - r)) l = Math.max(min, Math.min(r, val));
+                else r = Math.min(max, Math.max(l, val));
+                update();
+            });
+
+            update();
+
+            window.submitPinch = function() {
+                const ppn = update();
+                const isCorrect = (correctVal >= l && correctVal <= r);
+                renderResult(isCorrect ? ppn : 0, isCorrect);
+            };
+        }
+
+        function setupBonus(q) {
+            const app = document.getElementById("app");
+            let choices = [];
+            for(let i=1; i<=14; i++) {
+                if(q[`choice_${i}_text`]) {
+                    choices.push({
+                        text: q[`choice_${i}_text`],
+                        correct: q[`choice_${i}_correct`].trim().toLowerCase() === 'true'
+                    });
+                }
+            }
+
+            let html = `
+                <div class="screen-container">
+                    <div class="left-panel">
+                        <h2>${q.question_text}</h2>
+                        <div class="hint">Pick all valid answers. One wrong = 0 pts.</div>
+                    </div>
+                    <div class="right-panel">
+                        <div class="bonus-grid">
+            `;
+            choices.forEach((c, idx) => {
+                html += `<label class="bonus-item"><input type="checkbox" value="${idx}"> ${c.text}</label>`;
+            });
+            html += `   </div><button onclick="window.submitBonus()">Submit</button></div></div>`;
+            app.innerHTML = html;
+
+            window.submitBonus = function() {
+                const selected = document.querySelectorAll("input:checked");
+                let allCorrect = true;
+                let count = 0;
+                selected.forEach(el => {
+                    const idx = +el.value;
+                    if(choices[idx].correct) count++;
+                    else allCorrect = false;
+                });
+                const pts = allCorrect ? (count * 20) : 0;
+                renderResult(pts, pts > 0);
+            };
+        }
+
+        function setupMap(q) {
+            const app = document.getElementById("app");
+            app.innerHTML = `
+                <div class="screen-container">
+                    <div class="left-panel">
+                        <h2>${q.question_text}</h2>
+                        <div class="hint">Click the region.</div>
+                    </div>
+                    <div class

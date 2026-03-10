@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CLOSE ENOUGH TRIVIA PROTOTYPE</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+:root{
+--gold:#ffd700;
+--gold-dark:#9a6800;
+--gold-mid:#e6a800;
+--purple-deep:#110025;
+--purple-mid:#3a007a;
+--purple-bright:#6a0dad;
+}
+
+*{box-sizing:border-box;}
+
+body{
+margin:0;
+font-family:'Barlow','Trebuchet MS',sans-serif;
+font-weight:400;
+background:linear-gradient(150deg,#5a0a9e 0%,#1a0035 60%,#0d001f 100%);
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+min-height:100vh;
+overflow-x:hidden;
+}
+
+/* Ambient glow */
+body::before{
+content:'';
+position:fixed;
+top:-10%;
+left:50%;
+transform:translateX(-50%);
+width:90vw;
+height:70vw;
+background:radial-gradient(ellipse,rgba(130,40,220,0.18) 0%,transparent 65%);
+pointer-events:none;
+z-index:0;
+}
+
+#app{
+width:95%;
+max-width:1200px;
+position:relative;
+z-index:1;
+padding:30px 0;
+animation:fadeIn 0.35s ease;
+}
+
+@keyframes fadeIn{
+from{opacity:0;transform:translateY(10px);}
+to{opacity:1;transform:translateY(0);}
+}
+
+.screen{
+display:flex;
+gap:0;
+min-height:72vh;
+}
+
+.info{
+flex:1;
+display:flex;
+flex-direction:column;
+justify-content:center;
+padding:30px 40px 30px 10px;
+border-right:1px solid rgba(255,255,255,0.1);
+}
+
+.action{
+flex:1;
+display:flex;
+flex-direction:column;
+justify-content:flex-start;
+gap:16px;
+align-items:center;
+padding:30px 10px 30px 40px;
+}
+
+/* TYPOGRAPHY */
+h1{
+font-family:'Oswald','Trebuchet MS',sans-serif;
+font-size:54px;
+font-weight:700;
+margin:0 0 16px 0;
+letter-spacing:2px;
+text-transform:uppercase;
+color:var(--gold);
+text-shadow:0 0 40px rgba(255,215,0,0.35),0 3px 0 rgba(0,0,0,0.4);
+line-height:1.05;
+}
+
+h2{
+font-family:'Oswald','Trebuchet MS',sans-serif;
+font-size:26px;
+font-weight:600;
+margin:0 0 16px 0;
+line-height:1.35;
+letter-spacing:0.3px;
+}
+
+/* QUESTION LABEL (e.g. "QUESTION 1") */
+.q-label{
+font-family:'Oswald',sans-serif;
+font-size:13px;
+font-weight:600;
+letter-spacing:3px;
+text-transform:uppercase;
+color:rgba(255,215,0,0.65);
+margin-bottom:10px;
+}
+
+/* HINT TEXT */
+.hint{
+font-size:15px;
+font-style:italic;
+color:rgba(255,255,255,0.6);
+margin-top:12px;
+line-height:1.5;
+}
+
+/* BUTTONS */
+button{
+padding:13px 28px;
+font-family:'Oswald','Trebuchet MS',sans-serif;
+font-size:17px;
+font-weight:600;
+letter-spacing:1.5px;
+text-transform:uppercase;
+border:none;
+border-radius:10px;
+background:linear-gradient(to bottom,#ffd700,#e09800);
+color:#160030;
+cursor:pointer;
+box-shadow:0 5px 0 var(--gold-dark),0 8px 20px rgba(0,0,0,0.35);
+transition:all .12s ease;
+white-space:nowrap;
+}
+
+button:hover{
+transform:translateY(-2px);
+box-shadow:0 7px 0 var(--gold-dark),0 12px 28px rgba(0,0,0,0.4);
+background:linear-gradient(to bottom,#ffe033,#f5b200);
+}
+
+button:active{
+transform:translateY(4px);
+box-shadow:0 2px 0 var(--gold-dark),0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* PPN BOX */
+.ppn{
+width:100%;
+margin-top:16px;
+padding:16px 20px;
+background:rgba(255,255,255,0.055);
+border:1px solid rgba(255,255,255,0.1);
+border-radius:14px;
+text-align:center;
+font-size:16px;
+font-weight:500;
+color:rgba(255,255,255,0.8);
+backdrop-filter:blur(4px);
+}
+
+.ppn span{
+font-family:'Oswald','Trebuchet MS',sans-serif;
+font-size:40px;
+font-weight:700;
+color:var(--gold);
+text-shadow:0 0 16px rgba(255,215,0,0.55);
+display:block;
+margin-top:3px;
+line-height:1;
+}
+
+/* TURN INDICATOR BADGE */
+.turn-indicator{
+display:inline-block;
+margin-bottom:18px;
+padding:5px 16px;
+font-family:'Oswald',sans-serif;
+font-size:13px;
+font-weight:700;
+letter-spacing:2px;
+text-transform:uppercase;
+color:#160030;
+background:var(--gold);
+border-radius:20px;
+}
+
+/* CENTERED SCREENS (title, instructions, answer, etc.) */
+.center-screen{
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+text-align:center;
+min-height:65vh;
+gap:24px;
+}
+
+/* TITLE SCREEN BUTTONS */
+.title-btns{
+display:flex;
+gap:16px;
+flex-wrap:wrap;
+justify-content:center;
+margin-top:8px;
+}
+
+/* ANSWER / SCORE CARD */
+.score-card{
+background:rgba(255,255,255,0.06);
+border:1px solid rgba(255,255,255,0.13);
+border-radius:16px;
+padding:22px 28px;
+margin:14px 0;
+font-size:19px;
+line-height:1.7;
+width:100%;
+max-width:600px;
+}
+
+.score-card .pts-won{
+font-family:'Oswald',sans-serif;
+font-size:30px;
+font-weight:700;
+color:var(--gold);
+text-shadow:0 0 10px rgba(255,215,0,0.4);
+}
+
+.score-card .no-pts{
+font-size:20px;
+opacity:0.75;
+}
+
+.score-label{
+font-family:'Oswald',sans-serif;
+font-size:20px;
+font-weight:600;
+letter-spacing:0.5px;
+margin-top:8px;
+}
+
+/* ANSWER WRAPPER */
+.answer-wrap{
+display:flex;
+flex-direction:column;
+align-items:center;
+text-align:center;
+width:100%;
+padding:20px 0;
+animation:fadeIn 0.3s ease;
+}
+
+/* WINNER TEXT — JS handles the blink toggle via visibility */
+#winnerText{
+font-family:'Oswald',sans-serif;
+font-size:30px;
+font-weight:700;
+color:var(--gold);
+letter-spacing:2px;
+text-transform:uppercase;
+text-shadow:0 0 20px rgba(255,215,0,0.5);
+margin-top:10px;
+}
+
+/* RULER WRAPPER */
+.ruler-wrap{
+width:100%;
+background:rgba(0,0,0,0.2);
+border:1px solid rgba(255,255,255,0.08);
+border-radius:12px;
+padding:8px 0 4px 0;
+margin-bottom:8px;
+}
+
+/* BONUS LIST STYLING */
+.bonus-name{
+padding:7px 10px;
+margin:3px 0;
+border-radius:8px;
+transition:background 0.12s;
+font-size:17px;
+cursor:pointer;
+}
+
+.bonus-grid{
+  width:100%;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:6px 20px;
+}
+
+@media (max-width: 700px){
+  .bonus-grid{
+    grid-template-columns: 1fr;
+  }
+}
+.bonus-name:hover{
+background:rgba(255,255,255,0.07);
+}
+
+.bonus-name input[type=checkbox]{
+accent-color:var(--gold);
+width:16px;
+height:16px;
+margin-right:10px;
+cursor:pointer;
+vertical-align:middle;
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+
+/* ================= AUDIO ================= */
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+
+function playClick(ppn){
+
+const osc = audioCtx.createOscillator()
+const gain = audioCtx.createGain()
+
+// Slightly woodier / mechanical tone
+osc.type = "square"
+// Scale pitch based on potential points
+// Higher points (narrower range) = higher pitch
+
+const minFreq = 500
+const maxFreq = 1800
+
+let scaled = minFreq + (ppn / 100) * (maxFreq - minFreq)
+
+osc.frequency.value = scaled
+
+osc.connect(gain)
+gain.connect(audioCtx.destination)
+
+const now = audioCtx.currentTime
+
+// Sharp percussive attack
+gain.gain.setValueAtTime(0.001, now)
+gain.gain.linearRampToValueAtTime(0.4, now + 0.002)
+gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045)
+
+osc.start(now)
+osc.stop(now + 0.045)
+}
+
+function playTone(f1,f2,dur,type){
+let o=audioCtx.createOscillator()
+let g=audioCtx.createGain()
+o.type=type
+o.frequency.setValueAtTime(f1,audioCtx.currentTime)
+o.frequency.linearRampToValueAtTime(f2,audioCtx.currentTime+dur)
+o.connect(g)
+g.connect(audioCtx.destination)
+o.start()
+g.gain.setValueAtTime(0.3,audioCtx.currentTime)
+g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur)
+o.stop(audioCtx.currentTime+dur)
+}
+
+function playHappy(){ playTone(600,900,0.3,"triangle") }
+function playSad(){ playTone(400,200,0.35,"sawtooth") }
+function playNeutralBell(){
+
+const now = audioCtx.currentTime
+
+// One octave lower than playTurnBellLow()
+// playTurnBellLow base = 350
+// So we go another octave down → 175
+const baseFreq = 175
+const upperFreq = baseFreq * 2
+
+// Grace note
+let osc1 = audioCtx.createOscillator()
+let gain1 = audioCtx.createGain()
+
+osc1.type = "sine"
+osc1.frequency.value = baseFreq
+
+osc1.connect(gain1)
+gain1.connect(audioCtx.destination)
+
+gain1.gain.setValueAtTime(0.0001, now)
+gain1.gain.linearRampToValueAtTime(0.25, now + 0.01)
+gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.12)
+
+osc1.start(now)
+osc1.stop(now + 0.12)
+
+// Main octave hit
+let osc2 = audioCtx.createOscillator()
+let gain2 = audioCtx.createGain()
+
+osc2.type = "sine"
+osc2.frequency.value = upperFreq
+
+osc2.connect(gain2)
+gain2.connect(audioCtx.destination)
+
+let start2 = now + 0.05
+
+gain2.gain.setValueAtTime(0.0001, start2)
+gain2.gain.linearRampToValueAtTime(0.28, start2 + 0.01)
+gain2.gain.exponentialRampToValueAtTime(0.0001, start2 + 0.22)
+
+osc2.start(start2)
+osc2.stop(start2 + 0.22)
+
+}
+function playBonusFanfare(){
+
+const now = audioCtx.currentTime
+
+// Notes of a bright ascending fanfare (major triad + octave hit)
+const notes = [
+  523.25, // C5
+  659.25, // E5
+  783.99, // G5
+  1046.50, // C6
+  783.99  // G5 (quick resolve)
+]
+
+notes.forEach((freq, i) => {
+
+  const osc = audioCtx.createOscillator()
+  const gain = audioCtx.createGain()
+
+  osc.type = "triangle"  // softer/brassy feel
+  osc.frequency.value = freq
+
+  osc.connect(gain)
+  gain.connect(audioCtx.destination)
+
+  const start = now + (i * 0.08)
+
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.linearRampToValueAtTime(0.35, start + 0.01)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22)
+
+  osc.start(start)
+  osc.stop(start + 0.22)
+
+})
+
+}
+function playTurnBell(){
+
+const now = audioCtx.currentTime
+
+const baseFreq = 700   // lower note
+const upperFreq = baseFreq * 2  // exactly one octave higher
+
+// First short grace note
+let osc1 = audioCtx.createOscillator()
+let gain1 = audioCtx.createGain()
+
+osc1.type = "sine"
+osc1.frequency.value = baseFreq
+
+osc1.connect(gain1)
+gain1.connect(audioCtx.destination)
+
+gain1.gain.setValueAtTime(0.0001, now)
+gain1.gain.linearRampToValueAtTime(0.25, now + 0.01)
+gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.12)
+
+osc1.start(now)
+osc1.stop(now + 0.12)
+
+
+// Second main note (octave higher)
+let osc2 = audioCtx.createOscillator()
+let gain2 = audioCtx.createGain()
+
+osc2.type = "sine"
+osc2.frequency.value = upperFreq
+
+osc2.connect(gain2)
+gain2.connect(audioCtx.destination)
+
+let start2 = now + 0.05
+
+gain2.gain.setValueAtTime(0.0001, start2)
+gain2.gain.linearRampToValueAtTime(0.28, start2 + 0.01)
+gain2.gain.exponentialRampToValueAtTime(0.0001, start2 + 0.22)
+
+osc2.start(start2)
+osc2.stop(start2 + 0.22)
+
+}
+function playTurnBellLow(){
+
+const now = audioCtx.currentTime
+
+const baseFreq = 350   // exactly one octave below 700
+const upperFreq = baseFreq * 2
+
+// Grace note
+let osc1 = audioCtx.createOscillator()
+let gain1 = audioCtx.createGain()
+
+osc1.type = "sine"
+osc1.frequency.value = baseFreq
+
+osc1.connect(gain1)
+gain1.connect(audioCtx.destination)
+
+gain1.gain.setValueAtTime(0.0001, now)
+gain1.gain.linearRampToValueAtTime(0.25, now + 0.01)
+gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.12)
+
+osc1.start(now)
+osc1.stop(now + 0.12)
+
+// Main note (octave above)
+let osc2 = audioCtx.createOscillator()
+let gain2 = audioCtx.createGain()
+
+osc2.type = "sine"
+osc2.frequency.value = upperFreq
+
+osc2.connect(gain2)
+gain2.connect(audioCtx.destination)
+
+let start2 = now + 0.05
+
+gain2.gain.setValueAtTime(0.0001, start2)
+gain2.gain.linearRampToValueAtTime(0.28, start2 + 0.01)
+gain2.gain.exponentialRampToValueAtTime(0.0001, start2 + 0.22)
+
+osc2.start(start2)
+osc2.stop(start2 + 0.22)
+
+}
+function playArpeggio(baseFreq){
+
+const now = audioCtx.currentTime
+
+// Major triad intervals
+const third = baseFreq * Math.pow(2, 4/12)
+const fifth = baseFreq * Math.pow(2, 7/12)
+
+const notes = [baseFreq, third, fifth]
+
+notes.forEach((freq, i) => {
+
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+
+    osc.type = "triangle" // softer than square
+    osc.frequency.value = freq
+
+    osc.connect(gain)
+    gain.connect(audioCtx.destination)
+
+    const start = now + (i * 0.07)
+
+    gain.gain.setValueAtTime(0.0001, start)
+    gain.gain.linearRampToValueAtTime(0.25, start + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.25)
+
+    osc.start(start)
+    osc.stop(start + 0.25)
+
+})
+}
+
+}
+
+/* --- DYNAMIC DATA LOADER --- */
+let masterQuestionPool = [];
+
+async function initDynamicGame() {
+    try {
+        const [pinch, map, bonus] = await Promise.all([
+            d3.csv("pinch_questions.csv"),
+            d3.csv("map_questions.csv"),
+            d3.csv("bonus_questions.csv")
+        ]);
+
+        const p = pinch.map(d => ({...d, type: 'pinch'}));
+        const m = map.map(d => ({...d, type: 'map'}));
+        const b = bonus.map(d => ({...d, type: 'bonus'}));
+
+        masterQuestionPool = [...p, ...m, ...b];
+        showTitle(); 
+    } catch (err) {
+        console.error("Error: Could not read CSVs. Ensure they are Plain Text .csv files.", err);
+    }
+}
+
+function formatBonusChoices(qData) {
+    let choices = [];
+    for (let i = 1; i <= 14; i++) {
+        let text = qData[`choice_${i}_text`];
+        let correct = qData[`choice_${i}_correct`];
+        if (text && text.trim() !== "") {
+            choices.push({ text: text, isCorrect: (String(correct).toLowerCase().trim() === 'true') });
+        }
+    }
+    return choices;
+}
+
+/* ================= ENGINE ================= */
+
+class Engine{
+constructor(mode){
+this.mode=mode
+this.currentPlayer=1
+this.scores=[0,0]
+this.temp=[0,0]
+}
+pinchPPN(inclusive){
+if(inclusive===1) return 100
+let p=100-inclusive
+if(p<5) p=5
+return p
+}
+centuryPPN(count){
+return 110-(count*10)
+}
+mapPPN(count){
+if(count===0) return 0
+return 110-(count*10)
+}
+commit(points){
+if(this.mode===1){
+this.scores[0]+=points
+return {done:true}
+}else{
+this.temp[this.currentPlayer-1]=points
+if(this.currentPlayer===1){
+this.currentPlayer=2
+return {waiting:true}
+}else{
+let p1=this.temp[0]
+let p2=this.temp[1]
+this.scores[0]+=p1
+this.scores[1]+=p2
+this.temp=[0,0]
+this.currentPlayer=1
+return {done:true,p1Round:p1,p2Round:p2}
+}
+}
+}
+}
+
+let engine=null
+let currentQuestion=1
+let currentComplement='A'
+const app=document.getElementById("app")
+
+/* ================= FLOW ================= */
+
+function showTitle(){
+app.innerHTML=`
+<div class="center-screen">
+<div>
+<div style="font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,215,0,0.6);margin-bottom:14px;">For Both Nerds & Normies, it's...</div>
+<h1>Close Enough<br>Trivia</h1>
+<div style="font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;color:rgba(255,255,255,0.35);margin-top:8px;">PROTOTYPE</div>
+</div>
+<div class="title-btns">
+<button onclick="startGame(1)">1 Player</button>
+<button onclick="startGame(2)">2 Players</button>
+</div>
+</div>
+`
+}
+
+function startGame(mode) {
+    playArpeggio(440);
+    engine = new Engine(mode);
+    
+    // Shuffle the spreadsheet rows and pick the first 6
+    engine.gameSession = d3.shuffle(masterQuestionPool).slice(0, 6);
+    
+    currentQuestion = 1;
+    showInstructions();
+}
+
+function showInstructions(){
+app.innerHTML=`
+<div class="center-screen">
+<div style="max-width:560px;">
+<div style="font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:3px;color:rgba(255,215,0,0.6);margin-bottom:20px;text-transform:uppercase;">How to Play</div>
+<div style="font-size:22px;line-height:1.7;font-weight:300;">
+You don't have to be exactly right, just <em style="font-style:italic;font-weight:600;color:var(--gold);">CLOSE ENOUGH</em>.<br><br>
+Pick a range of answers, and if the correct answer is inside your range, you get points!
+</div>
+</div>
+<button onclick="beginGame()">I get it, let's play</button>
+</div>
+`
+}
+
+function beginGame(){
+    const higher = 440 * Math.pow(2, 2/12);
+    playArpeggio(higher);
+    currentQuestion = 1;
+    if(engine.mode === 1) continueTurn(); 
+    else showPlayerTurn();
+}
+
+function continueTurn() {
+    playTurnBell();
+    const q = engine.gameSession[currentQuestion - 1]; 
+
+    if (q.type === 'pinch') {
+        renderPinch({
+            questionText: `QUESTION ${currentQuestion}: ${q.question_text}`,
+            minYear: +q.min_value,
+            maxYear: +q.max_value,
+            correctYear: +q.true_value,
+            startLeft: +q.default_start,
+            startRight: +q.default_end
+        }, handleNext);
+    } 
+   else if (q.type === 'map') {
+    renderMap({
+        questionText: `QUESTION ${currentQuestion}: ${q.question_text}`,
+        geo_source: q.geo_source,
+        correct_ids: q.correct_ids ? q.correct_ids.split(',') : [],
+        visible_ids: q.visible_ids ? q.visible_ids.split(',') : []
+    }, handleNext);
+}
+    }
+    else if (q.type === 'bonus') {
+        renderBonusRound({
+            questionText: q.question_text,
+            hintText: q.hint_text,
+            choices: formatBonusChoices(q)
+        }, handleNext);
+    }
+}
+
+function handleNext() {
+    currentQuestion++;
+    if (currentQuestion > 6) {
+        showFinalScore();
+    } else {
+        if (engine.mode === 2) {
+            showPlayerTurn();
+        } else {
+            continueTurn();
+        }
+    }
+}
+
+/* ================= ANSWER ================= */
+
+function showAnswer(text,points,correct,result,next){
+app.innerHTML=`
+<div class="answer-wrap">
+<h2 style="margin-bottom:8px;">${text}</h2>
+<div class="score-card">
+${
+engine.mode===1
+? `<div class="${correct?'pts-won':'no-pts'}">${correct?'You won '+points+' points!':'Sorry, you won no points.'}</div>
+<div class="score-label" style="margin-top:12px;opacity:0.7;">Your total score: ${engine.scores[0]}</div>`
+: `<div style="opacity:0.8;font-size:17px;">Player 1 earned <strong style="color:var(--gold)">${result.p1Round}</strong> pts &nbsp;·&nbsp; Player 2 earned <strong style="color:var(--gold)">${result.p2Round}</strong> pts</div>
+<div class="score-label" style="margin-top:12px;">PLAYER 1: ${engine.scores[0]} &nbsp;|&nbsp; PLAYER 2: ${engine.scores[1]}</div>`
+}
+</div>
+${next?`<button onclick="${engine.mode===1?next.name+'()':'showPlayerTurn()'}">Continue</button>`:''}
+</div>
+`
+}
+
+/* ================= PINCH ENGINE (YEARS) ================= */
+
+function renderPinch(config,next){
+
+let {minYear,maxYear,startLeft,startRight,correctYear,questionText}=config
+let left=startLeft
+let right=startRight
+
+let lastSoundYear = null
+let isDragging = false
+
+const MAX=95
+const PAD=40
+const MINW=6
+
+app.innerHTML=`
+<div class="screen">
+
+<div class="info">
+<div class="q-label">${questionText.split(':')[0]}</div>
+<h2>${questionText.split(':').slice(1).join(':').trim()}</h2>
+${engine.mode===2?`<div class="turn-indicator">Player ${engine.currentPlayer}'s turn</div>`:''}
+<div class="hint">Pick a year or range of years. Drag the edges of the frame to resize; drag the center to move it.</div>
+</div>
+
+<div class="action">
+<div class="ruler-wrap">
+<svg id="ruler" style="width:100%;height:160px;"></svg>
+</div>
+
+<div class="ppn">
+Selected: <span id="sel"></span><br>
+Potential Points: <span id="ppn"></span>
+</div>
+
+<button onclick="submitPinch()">Submit Answer</button>
+</div>
+
+</div>
+`
+
+const svg=document.getElementById("ruler")
+const width=svg.clientWidth
+const usable=width-(PAD*2)
+const unit=usable/(maxYear-minYear)
+
+for(let y=minYear;y<=maxYear;y++){
+let x=PAD+(y-minYear)*unit
+let tick=document.createElementNS("http://www.w3.org/2000/svg","line")
+tick.setAttribute("x1",x)
+tick.setAttribute("x2",x)
+tick.setAttribute("stroke","white")
+if(y%10===0){
+tick.setAttribute("y1",40)
+tick.setAttribute("y2",100)
+let label=document.createElementNS("http://www.w3.org/2000/svg","text")
+label.setAttribute("x",x)
+label.setAttribute("y",30)
+label.setAttribute("fill","white")
+label.setAttribute("text-anchor","middle")
+label.textContent=y
+svg.appendChild(label)
+}else if(y%5===0){
+tick.setAttribute("y1",60)
+tick.setAttribute("y2",100)
+}else{
+tick.setAttribute("y1",75)
+tick.setAttribute("y2",100)
+}
+svg.appendChild(tick)
+}
+
+const rect=document.createElementNS("http://www.w3.org/2000/svg","rect")
+rect.setAttribute("fill","rgba(255,255,0,0.15)")
+rect.setAttribute("stroke","yellow")
+rect.setAttribute("stroke-width","3")
+rect.setAttribute("y",45)
+rect.setAttribute("height","55")
+svg.appendChild(rect)
+
+function clamp(){
+if(left<minYear) left=minYear
+if(right>maxYear) right=maxYear
+let size=right-left+1
+if(size>MAX) right=left+MAX-1
+if(right>maxYear){
+right=maxYear
+left=right-MAX+1
+}
+}
+
+function update(){
+clamp()
+let size=right-left+1
+let w=size*unit
+let x=PAD+(left-minYear)*unit
+if(size===1 && w<MINW){
+x-=(MINW-w)/2
+w=MINW
+}
+rect.setAttribute("x",x)
+rect.setAttribute("width",w)
+document.getElementById("sel").textContent=
+size===1?left:`${left}-${right}`
+let p=engine.pinchPPN(size)
+document.getElementById("ppn").textContent=p
+}
+
+update()
+
+let mode,startX,startL,startR
+
+rect.addEventListener("mousedown",e=>{
+startX=e.clientX
+startL=left
+startR=right
+
+isDragging = true
+let size = right - left + 1
+let p = engine.pinchPPN(size)
+playClick(p)
+
+lastSoundYear = left
+
+let r=rect.getBoundingClientRect()
+let offset=e.clientX-r.left
+if(offset<10) mode="left"
+else if(offset>r.width-10) mode="right"
+else mode="move"
+document.addEventListener("mousemove",drag)
+document.addEventListener("mouseup",stop)
+})
+
+function drag(e){
+let delta=Math.round((e.clientX-startX)/unit)
+if(mode==="left"){
+left=startL+delta
+if(left>right) left=right
+}else if(mode==="right"){
+right=startR+delta
+if(right<left) right=left
+}else{
+left=startL+delta
+right=startR+delta
+}
+update()
+
+if(isDragging){
+
+let referenceYear
+
+if(mode === "right"){
+referenceYear = right
+}else{
+referenceYear = left
+}
+
+let diff = Math.abs(referenceYear - lastSoundYear)
+
+if(diff >= 3){
+
+let size = right - left + 1
+let p = engine.pinchPPN(size)
+playClick(p)
+
+lastSoundYear = referenceYear
+}
+
+}
+
+}
+
+function stop(){
+isDragging = false
+document.removeEventListener("mousemove",drag)
+document.removeEventListener("mouseup",stop)
+}
+
+window.submitPinch=function(){
+let size=right-left+1
+let correct=(correctYear>=left && correctYear<=right)
+let pts=correct?engine.pinchPPN(size):0
+let result=engine.commit(pts)
+
+if(engine.mode===2 && result.waiting){
+
+    playTurnBellLow()
+
+    showPlayerTurn()
+    return
+}
+
+engine.mode===1?(correct?playHappy():playSad()):playNeutralBell()
+currentQuestion++
+showAnswer(
+`The correct answer was: ${correctYear}.`,
+pts,correct,result,next)
+}
+}
+
+function autoScaleApp(){
+  const appEl = document.getElementById("app")
+
+  // Reset scale to measure natural size
+  appEl.style.transform = "scale(1)"
+  appEl.style.transformOrigin = "top center"
+
+  const rect = appEl.getBoundingClientRect()
+
+  const windowWidth = window.innerWidth
+  const windowHeight = window.innerHeight
+
+  const scaleX = windowWidth / rect.width
+  const scaleY = windowHeight / rect.height
+
+  // Choose smaller so it always fits
+  let scale = Math.min(scaleX, scaleY)
+
+  // Optional: prevent it from getting absurdly large
+  if(scale > 1.4) scale = 1.4
+
+  appEl.style.transform = `scale(${scale})`
+}
+
+initDynamicGame()
+
+autoScaleApp()
+window.addEventListener("resize", autoScaleApp)
+
+</script>
+</body>
+</html>

@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLOSE ENOUGH TRIVIA - BUILD v31 (FINAL POLISH)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* --- THEME: NEON NOIR --- */
+:root { --gold: #ffd700; --gold-dark: #9a6800; --bg-gradient: linear-gradient(150deg, #5a0a9e 0%, #1a0035 60%, #0d001f 100%); }
+
+* { box-sizing: border-box; user-select: none; }
+body { margin: 0; font-family: 'Barlow', sans-serif; background: var(--bg-gradient); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow-x: hidden; }
+
+#app { width: 95%; max-width: 1200px; padding: 20px; text-align: center; position: relative; }
+
+/* TYPOGRAPHY */
+h1 { font-family: 'Oswald', sans-serif; font-size: 54px; color: var(--gold); text-transform: uppercase; margin: 0 0 4px 0; text-shadow: 0 0 30px rgba(255,215,0,0.4); line-height: 1.05; letter-spacing: 2px; }
+
+/* TITLE SCREEN EXTRAS */
+.nerd-label { font-family: 'Oswald', sans-serif; font-size: 13px; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,215,0,0.6); margin-bottom: 14px; }
+.proto-label { font-family: 'Oswald', sans-serif; font-size: 14px; letter-spacing: 4px; color: rgba(255,255,255,0.35); margin-top: 8px; margin-bottom: 30px; }
+
+/* CENTERED SCREENS */
+.center-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 65vh; gap: 24px; }
+
+/* QUESTION TEXT */
+h2 { 
+    font-family: 'Oswald', sans-serif; 
+    font-size: 48px; 
+    line-height: 1.4;
+    margin: 0 0 20px 0; 
+    font-weight: 600; 
+    letter-spacing: 1px; 
+}
+
+/* ANSWER TEXT */
+.answer-text {
+    font-family: 'Barlow', sans-serif; font-size: 40px; font-weight: 500; line-height: 1.3; margin: 20px 0; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.hint { font-style: italic; opacity: 0.8; font-size: 24px; margin-bottom: 20px; min-height: 24px; line-height: 1.4; }
+.ppn-display { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); margin: 5px 0; }
+.ppn-label { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6; margin-bottom: 5px; margin-top: 15px; }
+.selection-display { font-family: 'Oswald', sans-serif; font-size: 28px; color: white; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+
+/* CONTROLS */
+button {
+    padding: 15px 30px; font-family: 'Oswald', sans-serif; font-size: 20px; text-transform: uppercase;
+    border: none; border-radius: 8px; background: linear-gradient(to bottom, #ffd700, #e09800); color: #160030;
+    cursor: pointer; margin: 10px; box-shadow: 0 5px 0 var(--gold-dark); transition: transform 0.1s;
+}
+button:active { transform: translateY(4px); box-shadow: none; }
+button:disabled { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; }
+
+/* LAYOUTS */
+.screen-container { display: flex; flex-wrap: wrap; background: rgba(0,0,0,0.25); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; min-height: 500px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+.left-panel { flex: 1.2; padding: 40px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid rgba(255,255,255,0.1); min-width: 400px; text-align: left; }
+.right-panel { flex: 1; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 350px; background: rgba(0,0,0,0.1); }
+
+/* MODULES */
+#mapBox, #resultMapBox { width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 20px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+#resultMapBox { height: 300px; width: 80%; margin: 10px auto; } 
+#rulerContainer { width: 100%; height: 180px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; position: relative; }
+
+/* MAP STYLES */
+/* General Paths (Geo Maps) */
+path { transition: fill 0.2s; cursor: pointer; stroke: white; stroke-width: 0.5px; fill: rgba(255,255,255,0.05); }
+path:hover { fill: rgba(255,255,255,0.2) !important; }
+
+/* Specific Overrides for Image Maps (Jeans) */
+.map-layer path, .map-layer rect, .map-layer circle, .map-layer polygon, .map-layer ellipse {
+    cursor: pointer;
+    transition: fill 0.2s;
+}
+/* Prevent generic hover from messing up custom image styles */
+.map-layer *:hover {
+    fill: inherit; /* Handled by JS */
+}
+
+.selected { fill: #ffd700 !important; stroke: #fff; stroke-width: 1px; }
+.correct-highlight { fill: #ffd700 !important; fill-opacity: 0.75 !important; stroke: #fff; stroke-width: 2px; }
+
+/* BONUS GRID */
+.bonus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; text-align: left; margin-bottom: 20px; }
+.bonus-item { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 6px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; font-size: 18px; }
+.bonus-item:hover { background: rgba(255,255,255,0.2); }
+.bonus-item.active { background: #ffd700; color: black; font-weight: bold; }
+
+/* RESULTS */
+.score-box { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; margin: 5px; flex: 1; border: 1px solid rgba(255,215,0,0.3); }
+.score-label { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; margin-bottom: 5px; }
+.score-val { font-family: 'Oswald'; font-size: 60px; color: var(--gold); }
+.map-reveal-label { font-family: 'Oswald'; font-size: 24px; color: var(--gold); margin-bottom: 10px; text-transform: uppercase; }
+
+/* BONUS RESULTS SPLIT */
+.bonus-result-container { display: flex; width: 100%; gap: 20px; margin-top: 20px; text-align: left; }
+.bonus-col { flex: 1; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+.bonus-col h3 { font-family: 'Oswald'; color: var(--gold); margin: 0 0 10px 0; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; }
+.bonus-list-item { font-size: 16px; margin-bottom: 6px; opacity: 0.8; }
+
+/* DEBUG OVERLAY */
+.debug-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; padding: 40px; overflow-y: auto; }
+.debug-overlay.active { display: block; }
+.debug-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; max-width: 1000px; margin: 0 auto; }
+.debug-item { background: #333; padding: 15px; border-radius: 5px; cursor: pointer; text-align: left; border: 1px solid #555; transition: all 0.2s; }
+.debug-item:hover { background: #555; border-color: var(--gold); }
+.debug-id { color: var(--gold); font-family: 'Oswald'; font-size: 18px; margin-bottom: 5px; }
+.debug-type { font-size: 12px; opacity: 0.7; text-transform: uppercase; }
+.debug-close { position: fixed; top: 20px; right: 20px; z-index: 10000; background: #555; }
+.debug-btn { background: #333; color: #aaa; font-size: 14px; padding: 10px 20px; margin-top: 30px; border: 1px solid #555; box-shadow: none; }
+.debug-btn:hover { background: #444; color: white; }
+
+/* LOADING LOG */
+#bootLog { font-family: monospace; color: #00ff00; background: rgba(0,0,0,0.95); padding: 10px; text-align: left; position: fixed; bottom: 10px; right: 10px; border-radius: 5px; font-size: 10px; pointer-events: none; opacity: 1; max-height: 100px; overflow: hidden; z-index: 99999; border: 1px solid #333; }
+.err-msg { color: #ff5555; font-weight: bold; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 3px; display:inline-block; }
+</style>
+</head>
+<body>
+
+<div id="app">
+    <div id="screen-loading">
+        <h1>System Initializing...</h1>
+        <div class="hint">Attempting to connect...</div>
+    </div>
+</div>
+
+<div id="debugMenu" class="debug-overlay">
+    <button class="debug-close" onclick="closeDebug()">CLOSE</button>
+    <h1>DEBUG DATABASE</h1>
+    <div id="debugList" class="debug-grid"></div>
+</div>
+
+<div id="bootLog">Browser Check...</div>
+
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" onerror="libError('D3')"></script>
+<script src="https://unpkg.com/topojson@3.0.2/dist/topojson.min.js" onerror="libError('TopoJSON')"></script>
+
+<script>
+// --- UTILS ---
+function rgbToHex(rgb) {
+    if (!rgb || rgb.startsWith('#')) return rgb;
+    const sep = rgb.indexOf(",") > -1 ? "," : " ";
+    rgb = rgb.substr(4).split(")")[0].split(sep);
+    let r = (+rgb[0]).toString(16), g = (+rgb[1]).toString(16), b = (+rgb[2]).toString(16);
+    if (r.length == 1) r = "0" + r;
+    if (g.length == 1) g = "0" + g;
+    if (b.length == 1) b = "0" + b;
+    return "#" + r + g + b;
+}
+
+// --- LOGGING ---
+function log(msg, type='') {
+    const el = document.getElementById("bootLog");
+    if(!el) return;
+    const color = type === 'err' ? '#ff5555' : '#00ff00';
+    el.innerHTML = `<span style="color:${color}">> ${msg}</span><br>` + el.innerHTML;
+}
+
+// --- ERROR TRAP ---
+function libError(libName) {
+    log(`FATAL: Failed to load ${libName}. Check Internet.`, 'err');
+    document.getElementById("screen-loading").innerHTML = `
+        <h1>CONNECTION ERROR</h1>
+        <div class="hint" style="color:#ff5555">Could not load ${libName} library.</div>
+        <p>Please check your internet connection and refresh.</p>
+    `;
+}
+
+// --- AUDIO ENGINE ---
+const AudioEngine = {
+    ctx: null,
+    init: function() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+    },
+    playTone: function(type, freq, duration, startTime=0) {
+        if (!this.ctx) return;
+        const t = startTime || this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+        osc.stop(t + duration);
+    },
+    playClick: function(ppn) {
+        if (!this.ctx) return;
+        const freq = 200 + (ppn * 8);
+        this.playTone('square', freq, 0.05);
+    },
+    playMapClick: function(count, isAdding) {
+        if (!this.ctx) return;
+        let freq = Math.max(150, 600 - (count * 30));
+        if (!isAdding) freq += 150; 
+        this.playTone('sine', freq, 0.1);
+    },
+    playWin: function() { 
+        this.playTone('triangle', 600, 0.1); 
+        setTimeout(()=>this.playTone('triangle', 800, 0.4), 100); 
+    },
+    playLoss: function() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc1 = this.ctx.createOscillator(); const gain1 = this.ctx.createGain();
+        osc1.type = 'sawtooth'; osc1.frequency.setValueAtTime(146.8, now); osc1.frequency.linearRampToValueAtTime(155.6, now + 0.1);
+        osc1.connect(gain1); gain1.connect(this.ctx.destination);
+        osc1.start(now); gain1.gain.setValueAtTime(0.3, now); gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc1.stop(now + 0.4);
+        const t2 = now + 0.5;
+        const osc2 = this.ctx.createOscillator(); const gain2 = this.ctx.createGain();
+        osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(103.8, t2); osc2.frequency.linearRampToValueAtTime(110.0, t2 + 0.1);
+        osc2.connect(gain2); gain2.connect(this.ctx.destination);
+        osc2.start(t2); gain2.gain.setValueAtTime(0.3, t2); gain2.gain.exponentialRampToValueAtTime(0.01, t2 + 0.6); osc2.stop(t2 + 0.6);
+    },
+    playNeutral: function() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        this.playTone('sine', 523.25, 0.1, now);
+        this.playTone('sine', 659.25, 0.1, now + 0.1);
+        this.playTone('sine', 783.99, 0.3, now + 0.2);
+    },
+    playFanfare: function() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        this.playTone('square', 392.00, 0.15, now);
+        this.playTone('square', 392.00, 0.15, now + 0.2);
+        this.playTone('square', 440.00, 0.15, now + 0.4);
+        this.playTone('square', 587.33, 0.6, now + 0.6);
+    }
+};
+
+// --- GAME STATE ---
+const Game = {
+    deck: [], index: 0,
+    allQuestions: [],
+    scores: [0, 0], player: 0, mode: 1, tempScore: 0, 
+    colors: { gold: '#ffd700' },
+    errors: [],
+    savedBonus: null,
+    lastMapFeatures: null,
+    mapRegionStatus: {} // Lookup for correctness
+};
+
+// --- MAIN INIT ---
+window.onload = async function() {
+    log("Window Loaded. Validating Libraries...");
+    if (typeof d3 === 'undefined') { log("D3.js is missing.", 'err'); return; }
+    
+    log("Libraries OK. fetching CSVs...");
+    let pinch = [], map = [], bonus = [];
+
+    // SAFE LOADER
+    try {
+        log("Fetching pinch_questions.csv...");
+        pinch = await d3.csv("SPREADSHEETS/pinch_questions.csv");
+        if(pinch) {
+            pinch = pinch.map(d => ({...d, type:'pinch', id: d.question_id||d.ID}));
+            pinch.forEach(q => {
+                const min = +q.min_value; const max = +q.max_value; const width = +q.max_width_units;
+                if (width > 0 && width >= (max - min)) Game.errors.push(`PINCH-LINE ERROR: MAX WIDTH OF ${q.id} = TOO LONG.`);
+            });
+        }
+    } catch(e) { log("Error loading pinch CSV: " + e.message, 'err'); }
+
+    try {
+        log("Fetching map_questions.csv...");
+        map = await d3.csv("SPREADSHEETS/map_questions.csv");
+        if(map) map = map.map(d => ({...d, type:'map', id: d.question_id||d.ID}));
+    } catch(e) { log("Error loading map CSV: " + e.message, 'err'); }
+
+    try {
+        log("Fetching bonus_questions.csv...");
+        bonus = await d3.csv("SPREADSHEETS/bonus_questions.csv");
+        if(bonus) bonus = bonus.map(d => ({...d, type:'bonus', id: d.question_id||d.ID}));
+    } catch(e) { log("Warning: Bonus CSV missing.", 'err'); }
+
+    Game.allQuestions = [...(pinch||[]), ...(map||[]), ...(bonus||[])];
+
+    if (Game.allQuestions.length === 0) {
+        document.getElementById("screen-loading").innerHTML = `<h1>DATA ERROR</h1><p>No CSV files found.</p>`;
+        return;
+    }
+
+    const shuffle = arr => arr.sort(() => Math.random() - 0.5);
+    if(pinch) shuffle(pinch); if(map) shuffle(map); if(bonus) shuffle(bonus);
+
+    Game.deck = [
+        (pinch && pinch[0]), (map && map[0]), 
+        (pinch && pinch[1]), (pinch && pinch[2]), 
+        (map && map[1]), (bonus && bonus[0])
+    ].filter(Boolean);
+
+    log("Deck Ready. Launching UI.");
+    showTitleScreen();
+};
+
+function openDebug() {
+    const list = document.getElementById("debugList");
+    list.innerHTML = "";
+    Game.allQuestions.forEach(q => {
+        const el = document.createElement("div");
+        el.className = "debug-item";
+        el.innerHTML = `<div class="debug-id">${q.id}</div><div class="debug-type">${q.type}</div>`;
+        el.onclick = () => { closeDebug(); Game.deck = [q]; startGame(1); };
+        list.appendChild(el);
+    });
+    document.getElementById("debugMenu").classList.add("active");
+}
+function closeDebug() { document.getElementById("debugMenu").classList.remove("active"); }
+
+function showTitleScreen() {
+    let errorHTML = "";
+    if (Game.errors.length > 0) {
+        errorHTML = `<div style="color:#ff3333; font-weight:bold; font-family:'Oswald'; font-size:24px; text-transform:uppercase; margin-bottom:20px; background:rgba(0,0,0,0.8); padding:15px; border:2px solid red; box-shadow:0 0 20px red;">${Game.errors.join('<br>')}</div>`;
+    }
+    document.getElementById("app").innerHTML = `
+        ${errorHTML}
+        <div class="nerd-label">For Both Nerds & Normies, it's...</div>
+        <h1>Close Enough<br>Trivia</h1>
+        <div class="proto-label">PROTOTYPE</div>
+        <button onclick="startGame(1)">1 Player</button>
+        <button onclick="startGame(2)">2 Players</button>
+        <br>
+        <button class="debug-btn" onclick="openDebug()">DEBUG DATABASE</button>
+    `;
+}
+
+function startGame(mode) {
+    AudioEngine.init();
+    AudioEngine.playNeutral();
+    Game.mode = mode;
+    Game.scores = [0,0];
+    Game.player = 0;
+    Game.index = 0;
+    Game.savedBonus = null; 
+    showInstructions();
+}
+
+function showInstructions() {
+    document.getElementById("app").innerHTML = `
+        <div class="center-screen">
+            <div style="max-width:560px;">
+                <div style="font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:3px;color:rgba(255,215,0,0.6);margin-bottom:20px;text-transform:uppercase;">How to Play</div>
+                <div style="font-size:22px;line-height:1.7;font-weight:300;">
+                You don't have to be exactly right, just <em style="font-style:italic;font-weight:600;color:var(--gold);">CLOSE ENOUGH</em>.<br><br>
+                Pick a range of answers, and if the correct answer is inside your range, you get points!
+                </div>
+            </div>
+            <button onclick="beginGame()">I get it, let's play</button>
+        </div>
+    `;
+}
+
+function beginGame() { AudioEngine.playNeutral(); nextTurn(); }
+
+function nextTurn() {
+    AudioEngine.playNeutral(); 
+    if (Game.index >= Game.deck.length) { showGameOver(); return; }
+    if (Game.mode === 2) showReadyScreen(); else renderQuestion();
+}
+
+function showReadyScreen() {
+    document.getElementById("app").innerHTML = `
+        <h1>Player ${Game.player + 1}</h1>
+        <h2>Get Ready...</h2>
+        <button onclick="renderQuestion()">Start Turn</button>
+    `;
+}
+
+function renderQuestion() {
+    if(Game.mode === 2) AudioEngine.playNeutral();
+    const q = Game.deck[Game.index];
+    const app = document.getElementById("app");
+    app.innerHTML = "";
+    if(q.type === 'pinch') renderPinch(q, app);
+    else if(q.type === 'map') renderMap(q, app);
+    else if(q.type === 'bonus') renderBonusIntro(q, app);
+}
+
+// --- BONUS ROUND SEQUENCE ---
+
+// STEP 1: INTRO FANFARE
+function renderBonusIntro(q, container) {
+    container.innerHTML = `
+        <div class="center-screen">
+            <h1 style="font-size:100px; line-height:1; margin-bottom:20px;">BONUS ROUND</h1>
+            <div style="font-family:'Oswald'; font-size:20px; opacity:0.6; letter-spacing:4px;">[ LOADING... ]</div>
+        </div>
+    `;
+    AudioEngine.playFanfare();
+    setTimeout(() => renderBonusChoice(q, container), 2000);
+}
+
+// STEP 2: CHOOSE YOUR MODE
+function renderBonusChoice(q, container) {
+    container.innerHTML = `
+        <div class="center-screen">
+            <div>
+                <div style="font-family:'Oswald'; font-size:18px; color:var(--gold); letter-spacing:2px; margin-bottom:10px;">BONUS ROUND CATEGORY:</div>
+                <h2 style="font-size:56px; margin:0;">${q.category || "General Knowledge"}</h2>
+            </div>
+            <div style="font-size:24px; max-width:600px; line-height:1.4;">
+                DO YOU WANT TO GET POINTS FOR EVERY <strong>WRONG ANSWER</strong> YOU CHOOSE, OR EVERY <strong>RIGHT ANSWER</strong>?
+            </div>
+            <div style="display:flex; gap:20px;">
+                <button onclick="renderBonusGrid('wrong')">WRONG ANSWERS</button>
+                <button onclick="renderBonusGrid('right')">RIGHT ANSWERS</button>
+            </div>
+        </div>
+    `;
+    Game.currentBonusQ = q;
+}
+
+// STEP 3: THE GRID
+function renderBonusGrid(mode) {
+    const q = Game.currentBonusQ;
+    const container = document.getElementById("app");
+    
+    let targetIsTruth = (mode === 'right'); 
+    let headerText = targetIsTruth ? "CLICK THE RIGHT ONES" : "WRONG ANSWERS ONLY!";
+    let subText = targetIsTruth ? "You only get points for RIGHT answers (7 max)." : "You only get points for WRONG answers (7 max).";
+
+    let choices = [];
+    if (Game.savedBonus && Game.savedBonus.id === q.id) {
+        choices = Game.savedBonus.list;
+    } else {
+        let rawList = [];
+        for(let i=1; i<=14; i++) {
+            if(q[`choice_${i}_text`]) {
+                let isFact = q[`choice_${i}_correct`].toLowerCase() === 'true';
+                rawList.push({ txt: q[`choice_${i}_text`], isFact: isFact, id: i });
+            }
+        }
+        choices = rawList.sort(() => Math.random() - 0.5);
+        Game.savedBonus = { id: q.id, list: choices };
+    }
+
+    container.innerHTML = `
+        <div class="screen-container">
+            <div class="left-panel">
+                <h2 style="color:var(--gold); margin-bottom:10px;">${headerText}</h2>
+                <div class="hint">${subText}</div>
+            </div>
+            <div class="right-panel">
+                <div class="bonus-grid">
+                    ${choices.map(c => `<div class="bonus-item" onclick="toggleBonus(this, ${c.id})">${c.txt}</div>`).join('')}
+                </div>
+                <div class="ppn-label">Potential Points</div>
+                <div class="ppn-display" id="bonusPpn">0</div>
+                <button onclick="submitBonus('${mode}')">SUBMIT ANSWER</button>
+            </div>
+        </div>
+    `;
+
+    Game.bonusSelection = new Set();
+    
+    window.toggleBonus = function(el, id) {
+        if(Game.bonusSelection.has(id)) {
+            Game.bonusSelection.delete(id);
+            el.classList.remove('active');
+            AudioEngine.playTone('sine', 300, 0.1);
+        } else {
+            if(Game.bonusSelection.size >= 7) return; 
+            Game.bonusSelection.add(id);
+            el.classList.add('active');
+            AudioEngine.playTone('sine', 600, 0.1);
+        }
+        document.getElementById("bonusPpn").innerText = Game.bonusSelection.size * 25;
+    };
+
+    window.submitBonus = function(mode) {
+        const targetIsTruth = (mode === 'right');
+        
+        let correctCount = 0;
+        let incorrectCount = 0;
+        let totalPossibleCorrect = 0;
+
+        choices.forEach(c => {
+            if (targetIsTruth && c.isFact) totalPossibleCorrect++;
+            if (!targetIsTruth && !c.isFact) totalPossibleCorrect++;
+        });
+
+        Game.bonusSelection.forEach(id => {
+            const c = choices.find(ch => ch.id === id);
+            const isCorrectSelection = (targetIsTruth && c.isFact) || (!targetIsTruth && !c.isFact);
+            
+            if (isCorrectSelection) correctCount++;
+            else incorrectCount++;
+        });
+
+        const pts = correctCount * 25;
+
+        let feedbackHeader = null;
+        if (Game.mode === 1) {
+            if (correctCount === totalPossibleCorrect && incorrectCount === 0) {
+                feedbackHeader = "WOW, YOU GOT EACH ONE! YOU RECEIVE...";
+            } else if (correctCount > 0 && incorrectCount === 0) {
+                feedbackHeader = "GREAT JOB! YOU GOT...";
+            } else if (correctCount > 0 && incorrectCount > 0) {
+                feedbackHeader = "CLOSE ENOUGH! YOU GOT...";
+            } else if (correctCount === 0 && incorrectCount > 0) {
+                feedbackHeader = "NOT A SINGLE ONE. SORRY, YOU GOT...";
+            } else {
+                feedbackHeader = "SORRY, YOU GOT...";
+            }
+        }
+
+        let rightList = choices.filter(c => c.isFact).map(c => `<div class="bonus-list-item">${c.txt}</div>`).join('');
+        let wrongList = choices.filter(c => !c.isFact).map(c => `<div class="bonus-list-item">${c.txt}</div>`).join('');
+
+        let resultHTML = `
+            <div class="bonus-result-container">
+                <div class="bonus-col">
+                    <h3>RIGHT ANSWERS</h3>
+                    ${rightList}
+                </div>
+                <div class="bonus-col">
+                    <h3>WRONG ANSWERS</h3>
+                    ${wrongList}
+                </div>
+            </div>
+        `;
+
+        showResult(pts, resultHTML, q, true, feedbackHeader); 
+    };
+}
+
+// --- RENDERER: PINCH ---
+function renderPinch(q, container) {
+    function formatValue(val) {
+        const unit = (q.unit || "").toLowerCase();
+        if (unit === 'month' || q.id === 'pinch_G') { 
+            const months = ["", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+            let i = Math.round(val);
+            if(i >= 1 && i <= 12) return months[i]; return val;
+        }
+        if (unit === 'currency' || unit === '$' || unit === 'usd') return "$" + Math.round(val).toLocaleString();
+        if (unit === 'percent' || unit === '%') return Math.round(val) + "%";
+        if (unit === 'time' || q.id === 'pinch_J') {
+            const m = Math.floor(val / 60); const s = Math.round(val % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+        return Math.round(val); 
+    }
+
+    container.innerHTML = `
+        <div class="screen-container">
+            <div class="left-panel">
+                <h2>${q.question_text || "Question"}</h2>
+                <div class="hint">Choose a single number or a range of numbers.</div>
+            </div>
+            <div class="right-panel">
+                <div class="selection-display" id="selectionDisp">SELECTED: 0</div>
+                <div id="rulerContainer"></div>
+                <div class="ppn-label">Potential Points</div>
+                <div class="ppn-display" id="ppnDisplay">0</div>
+                <button onclick="Game.submitPinch()">SUBMIT ANSWER</button>
+            </div>
+        </div>
+    `;
+
+    const min = +q.min_value; const max = +q.max_value; 
+    const labelInt = +q.label_interval || 10;
+    let majorInt = +q.major_tick; if(!majorInt) majorInt = labelInt;
+    let minorInt = +q.minor_tick; if(!minorInt) minorInt = majorInt;
+    const snap = minorInt;
+    const trueVal = +q.true_value;
+    const maxSpan = +q.max_width_units || 0;
+    
+    let l = +q.default_start || min; let r = +q.default_end || max;
+    let lastSoundVal = -999; 
+
+    const width = 600, height = 150;
+    const svg = d3.select("#rulerContainer").append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${width} ${height}`);
+    const x = d3.scaleLinear().domain([min, max]).range([20, width-20]);
+    const tickGroup = svg.append("g").attr("transform", "translate(0, 80)");
+
+    if(minorInt) tickGroup.append("g").call(d3.axisBottom(x).tickValues(d3.range(min, max + snap, minorInt)).tickSize(6).tickFormat("")).style("color", "rgba(255,255,255,0.3)");
+    if(majorInt) tickGroup.append("g").call(d3.axisBottom(x).tickValues(d3.range(min, max + snap, majorInt)).tickSize(12).tickFormat("")).style("color", "rgba(255,255,255,0.6)");
+    tickGroup.append("g").call(d3.axisBottom(x).tickValues(d3.range(min, max + snap, labelInt)).tickSize(20).tickFormat(d => formatValue(d))).style("color", "white").style("font-size", "18px").style("font-family", "Barlow");
+
+    // FORCE INLINE STYLES to prevent overrides
+    const bar = svg.append("rect")
+        .attr("y", 30).attr("height", 50)
+        .style("fill", "rgba(255,215,0,0.3)")
+        .style("stroke", "#ffd700")
+        .style("stroke-width", "3px")
+        .style("cursor", "grab");
+    
+    bar.attr("width", 0).attr("x", 20);
+
+    function update() {
+        const pxW = x(r) - x(l); const minPx = 15;
+        const txtL = formatValue(l); const txtR = formatValue(r);
+        if (pxW < minPx) { bar.attr("x", x(l) - minPx/2).attr("width", minPx); document.getElementById("selectionDisp").innerText = `SELECTED: ${txtL}`; } 
+        else { bar.attr("x", x(l)).attr("width", pxW); document.getElementById("selectionDisp").innerText = `SELECTED: [ ${txtL} - ${txtR} ]`; }
+        const pct = (r - l) / (max - min);
+        const ppn = Math.max(5, Math.round(100 - (pct * 100)));
+        document.getElementById("ppnDisplay").innerText = ppn;
+        return ppn;
+    }
+    update();
+
+    let dragMode = null, startX, startL, startR;
+    bar.on("mousedown", e => {
+        const mx = d3.pointer(e)[0];
+        const visualL = (x(r)-x(l) < 15) ? x(l)-7.5 : x(l); const visualW = (x(r)-x(l) < 15) ? 15 : x(r)-x(l);
+        const edgeZone = Math.min(20, visualW / 3); 
+        if(mx < visualL + edgeZone) dragMode = 'left'; else if(mx > visualL + visualW - edgeZone) dragMode = 'right'; else dragMode = 'move';
+        startX = mx; startL = l; startR = r; lastSoundVal = dragMode === 'right' ? r : l; 
+        d3.select(window).on("mousemove", onDrag).on("mouseup", stopDrag);
+    });
+
+    function onDrag(e) {
+        const currX = d3.pointer(e, svg.node())[0]; const deltaVal = (currX - startX) * ((max - min) / (width-40));
+        if(dragMode === 'move') {
+            let dl = startL + deltaVal, dr = startR + deltaVal;
+            if(dl < min) { dl=min; dr=min+(startR-startL); } if(dr > max) { dr=max; dl=max-(startR-startL); }
+            l = Math.round(dl/snap)*snap; r = Math.round(dr/snap)*snap;
+        } else if(dragMode === 'left') {
+            let newL = Math.round((startL+deltaVal)/snap)*snap; newL = Math.max(min, Math.min(r, newL));
+            if (maxSpan > 0 && (r - newL) > maxSpan) newL = r - maxSpan; l = newL;
+        } else if(dragMode === 'right') {
+            let newR = Math.round((startR+deltaVal)/snap)*snap; newR = Math.min(max, Math.max(l, newR));
+            if (maxSpan > 0 && (newR - l) > maxSpan) newR = l + maxSpan; r = newR;
+        }
+        const currentPpn = update();
+        const checkVal = dragMode === 'right' ? r : l;
+        if(Math.abs(checkVal - lastSoundVal) >= snap) { AudioEngine.playClick(currentPpn); lastSoundVal = checkVal; }
+    }
+    function stopDrag() { d3.select(window).on("mousemove", null).on("mouseup", null); }
+
+    Game.submitPinch = function() {
+        const ppn = update();
+        const win = (r >= Math.floor(trueVal) && l <= Math.ceil(trueVal));
+        showResult(win ? ppn : 0, q.answer_text, q);
+    };
+}
+
+// --- RENDERER: MAP ---
+function renderMap(q, container) {
+    container.innerHTML = `
+        <div class="screen-container">
+            <div class="left-panel">
+                <h2>${q.question_text}</h2>
+                <div class="hint">Select up to ${q.max_selectable} regions.</div>
+            </div>
+            <div class="right-panel">
+                <div id="mapBox">Loading Map...</div>
+                <div class="ppn-label">Potential Points</div>
+                <div class="ppn-display" id="mapPpn">0</div>
+                <button onclick="Game.submitMap()">SUBMIT ANSWER</button>
+            </div>
+        </div>
+    `;
+    const selected = new Set(); 
+    const limit = +q.max_selectable || 99;
+    
+    // --- CUSTOM IMAGE LOGIC ---
+    if (q.geo_source === 'custom_image') {
+        const width = 600, height = 400;
+        const svg = d3.select("#mapBox").html("").append("svg")
+            .attr("width", "100%").attr("height", "100%")
+            .attr("viewBox", `0 0 ${width} ${height}`); 
+
+        d3.xml(q.svg_file).then(xml => {
+            const importedNode = document.importNode(xml.documentElement, true);
+            const vBox = d3.select(importedNode).attr("viewBox") || `0 0 ${width} ${height}`;
+            svg.attr("viewBox", vBox);
+
+            svg.append("image")
+                .attr("href", q.image_file)
+                .attr("width", "100%").attr("height", "100%");
+
+            const mapLayer = svg.append("g").attr("class", "map-layer");
+            Array.from(importedNode.children).forEach(child => {
+                mapLayer.node().appendChild(child);
+            });
+
+            // RESET LOOKUP TABLE FOR THIS QUESTION
+            Game.mapRegionStatus = {};
+
+            // SETUP INTERACTION
+            mapLayer.selectAll("path, rect, circle, polygon, ellipse")
+                .attr("fill-opacity", "0.01")
+                .attr("stroke", "black") 
+                .attr("stroke-width", "4px") 
+                .each(function(d, i) { 
+                    const el = d3.select(this);
+                    // Generate ID
+                    const uid = "region_" + i;
+                    el.attr("data-internal-id", uid);
+                    
+                    // DETERMINE CORRECTNESS NOW (CHEAT SHEET)
+                    let raw = this.getAttribute('fill') || this.style.fill;
+                    const comp = window.getComputedStyle(this).fill; 
+                    let val = rgbToHex(comp) || raw;
+                    if (val) val = val.toLowerCase();
+                    const correctColor = (q.correct_ids || "").toLowerCase();
+                    
+                    // Store True/False in lookup table
+                    Game.mapRegionStatus[uid] = (val === correctColor);
+                })
+                .on("click", function(e) {
+                    const el = d3.select(this);
+                    const uid = el.attr("data-internal-id"); 
+                    let isAdding = false;
+                    
+                    if(selected.has(uid)) { 
+                        selected.delete(uid); 
+                        el.classed("selected", false); 
+                        el.style("fill", null).style("fill-opacity", "0.01");
+                    } else { 
+                        const realLimit = (limit === 1 && q.geo_source === 'custom_image') ? 9 : limit;
+                        if(selected.size >= realLimit) return; 
+                        
+                        selected.add(uid); 
+                        el.classed("selected", true);
+                        el.style("fill", "#ffd700").style("fill-opacity", "0.75");
+                        isAdding = true; 
+                    }
+                    
+                    AudioEngine.playMapClick(selected.size, isAdding);
+                    const cost = +q.points_per_extra_unit || 10;
+                    let pts = 100 - (Math.max(0, selected.size - 1) * cost); 
+                    if(selected.size === 0) pts = 0;
+                    document.getElementById("mapPpn").innerText = pts;
+                })
+                .on("mouseover", function() {
+                    if(!d3.select(this).classed("selected")) d3.select(this).style("fill", "rgba(255,255,255,0.2)").style("fill-opacity", "0.3");
+                })
+                .on("mouseout", function() {
+                    if(!d3.select(this).classed("selected")) d3.select(this).style("fill", null).style("fill-opacity", "0.01");
+                });
+        });
+        
+        Game.lastMapProj = 'custom'; 
+        Game.lastMapFeatures = q.svg_file; 
+
+        Game.submitMap = function() {
+            // CHECK WIN STATUS USING LOOKUP TABLE (More Reliable)
+            let win = false;
+            selected.forEach(uid => {
+                if (Game.mapRegionStatus[uid] === true) win = true;
+            });
+
+            const cost = +q.points_per_extra_unit || 10; 
+            let pts = 100 - (Math.max(0, selected.size - 1) * cost);
+            if(selected.size === 0) pts = 0; 
+            if(!win) pts = 0;
+            
+            // Override Text for Jeans
+            let ansText = `This is the ${q.correct_ids}:`;
+            if (q.question_id === 'map_q_A') ansText = "THIS IS THE YOKE";
+
+            showResult(pts, ansText, q);
+        };
+        return;
+    } 
+    // -------------------------
+
+    let url, projectionType;
+    if (q.geo_source === 'us_states') { url = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"; projectionType = 'albers'; }
+    else if (q.geo_source === 'world_countries') { url = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"; projectionType = 'natural'; }
+    else if (q.geo_source === 'nyc_boroughs') { url = "https://raw.githubusercontent.com/dwillis/nyc-maps/master/boroughs.geojson"; projectionType = 'mercator'; }
+
+    Game.lastMapProj = projectionType;
+    d3.json(url).then(data => {
+        let features;
+        if(q.geo_source === 'nyc_boroughs') { features = data.features; features.forEach(f => { let name = f.properties.BoroName || f.properties.name; if(name === "Bronx") name = "The Bronx"; f.properties.name = name; }); } 
+        else { const key = Object.keys(data.objects).find(k => k.match(/state|countr/)) || Object.keys(data.objects)[0]; features = topojson.feature(data, data.objects[key]).features; }
+        if(q.visible_ids) { const whitelist = q.visible_ids.split(",").map(s => s.trim()); features = features.filter(f => whitelist.includes(f.properties.name)); }
+        Game.lastMapFeatures = features; 
+        const width = 600, height = 400;
+        const svg = d3.select("#mapBox").html("").append("svg").attr("viewBox", `0 0 ${width} ${height}`).style("width", "100%").style("height", "100%");
+        let proj;
+        if(Game.lastMapProj === 'albers') proj = d3.geoAlbersUsa().fitSize([width, height], {type:"FeatureCollection", features});
+        else if(Game.lastMapProj === 'natural') proj = d3.geoNaturalEarth1().fitSize([width, height], {type:"FeatureCollection", features});
+        else proj = d3.geoMercator().fitSize([width, height], {type:"FeatureCollection", features});
+        const path = d3.geoPath().projection(proj);
+        svg.selectAll("path").data(features).join("path").attr("d", path)
+            .on("click", function(e, d) {
+                const name = d.properties.name; const el = d3.select(this); let isAdding = false;
+                if(selected.has(name)) { selected.delete(name); el.classed("selected", false); } 
+                else { if(selected.size >= limit) return; selected.add(name); el.classed("selected", true); isAdding = true; }
+                AudioEngine.playMapClick(selected.size, isAdding);
+                const cost = +q.points_per_extra_unit || 10;
+                let pts = 100 - (Math.max(0, selected.size - 1) * cost); if(selected.size === 0) pts = 0;
+                document.getElementById("mapPpn").innerText = pts;
+            });
+    });
+    Game.submitMap = function() {
+        const correct = q.correct_ids; const win = selected.has(correct);
+        const cost = +q.points_per_extra_unit || 10; let pts = 100 - (Math.max(0, selected.size - 1) * cost);
+        if(selected.size === 0) pts = 0; if(!win) pts = 0;
+        showResult(pts, `This is ${correct}:`, q);
+    };
+}
+
+function showResult(pts, ansText, q, isBonus, customHeader) {
+    if(pts > 0) AudioEngine.playWin(); else AudioEngine.playLoss();
+    if(Game.mode === 1) Game.scores[0] += pts;
+    else {
+        if(Game.player === 0) { Game.tempScore = pts; Game.player = 1; showReadyScreen(); return; } 
+        else { Game.scores[0] += Game.tempScore; Game.scores[1] += pts; Game.player = 0; Game.index++; }
+    }
+    if(Game.mode === 1) Game.index++;
+
+    // HEADER LOGIC
+    let header = "";
+    if (customHeader) {
+        header = customHeader;
+    } else {
+        header = pts > 0 ? `CORRECT! YOU GOT...` : `SORRY, YOU GOT...`;
+    }
+    
+    let scoreHTML = '';
+    if (Game.mode === 1) { scoreHTML = `<div class="score-box"><div class="score-label">YOUR TOTAL SCORE:</div><div class="score-val">${Game.scores[0]}</div></div>`; } 
+    else { scoreHTML = `<div style="display:flex; gap:20px; width:100%;"><div class="score-box"><div class="score-label">PLAYER 1'S SCORE:</div><div class="score-val">${Game.scores[0]}</div></div><div class="score-box"><div class="score-label">PLAYER 2'S SCORE:</div><div class="score-val">${Game.scores[1]}</div></div></div>`; }
+
+    let contentHTML = "";
+    if (isBonus) {
+        contentHTML = ansText; 
+        ansText = ""; 
+    } else if (q && q.type === 'map') {
+        contentHTML = `<div class="map-reveal-label">${ansText}</div><div id="resultMapBox"></div>`;
+        ansText = ""; 
+    }
+
+    document.getElementById("app").innerHTML = `
+        <h1>${header}</h1>
+        <h2>+${pts} Points</h2>
+        ${contentHTML}
+        <div class="answer-text">${ansText}</div>
+        <div style="width:90%; margin:20px auto;">${scoreHTML}</div>
+        <button onclick="nextTurn()">CONTINUE</button>
+    `;
+
+    if (q && q.type === 'map') {
+        const width = 600, height = 400;
+        const svg = d3.select("#resultMapBox").append("svg").attr("viewBox", `0 0 ${width} ${height}`).style("width", "100%").style("height", "100%");
+        const correctName = (q.correct_ids || "").toLowerCase(); 
+
+        // Custom Image Result
+        if (q.geo_source === 'custom_image') {
+             d3.xml(q.svg_file).then(xml => {
+                const importedNode = document.importNode(xml.documentElement, true);
+                const vBox = d3.select(importedNode).attr("viewBox") || `0 0 ${width} ${height}`;
+                svg.attr("viewBox", vBox);
+                
+                svg.append("image")
+                    .attr("href", q.image_file)
+                    .attr("width", "100%").attr("height", "100%");
+                
+                const mapLayer = svg.append("g");
+                Array.from(importedNode.children).forEach(child => mapLayer.node().appendChild(child));
+                
+                // RE-APPLY STYLES TO SHOW ANSWER
+                mapLayer.selectAll("path, rect, circle, polygon, ellipse")
+                    .attr("fill", "transparent").attr("stroke", "white").attr("stroke-width", "4px")
+                    .each(function() {
+                        let raw = this.getAttribute('fill') || this.style.fill;
+                        const comp = window.getComputedStyle(this).fill; 
+                        let val = rgbToHex(comp) || raw;
+                        if (val) val = val.toLowerCase();
+                        
+                        if (val === correctName) {
+                            // FORCE HIGHLIGHT INLINE
+                            d3.select(this).style("fill", "#ffd700").style("fill-opacity", "0.75");
+                        }
+                    });
+             });
+        } else {
+            // Standard GeoJSON Result
+            const features = Game.lastMapFeatures;
+            let proj;
+            if(Game.lastMapProj === 'albers') proj = d3.geoAlbersUsa().fitSize([width, height], {type:"FeatureCollection", features});
+            else if(Game.lastMapProj === 'natural') proj = d3.geoNaturalEarth1().fitSize([width, height], {type:"FeatureCollection", features});
+            else proj = d3.geoMercator().fitSize([width, height], {type:"FeatureCollection", features});
+            const path = d3.geoPath().projection(proj);
+            svg.selectAll("path").data(features).join("path").attr("d", path).attr("class", d => d.properties.name === q.correct_ids ? "correct-highlight" : "");
+        }
+    }
+}
+
+function showGameOver() {
+    let msg = "";
+    if(Game.mode === 2) {
+        const p1 = Game.scores[0], p2 = Game.scores[1];
+        if(p1 > p2) msg = "PLAYER 1 WINS!"; else if(p2 > p1) msg = "PLAYER 2 WINS!"; else msg = "IT'S A TIE!";
+        msg += `<br><span style="font-size:24px; opacity:0.8">P1: ${p1} - P2: ${p2}</span>`;
+    } else { msg = `Final Score: ${Game.scores[0]}`; }
+    document.getElementById("app").innerHTML = `<h1>GAME OVER</h1><div class="ppn-display">${msg}</div><button onclick="location.reload()">PLAY AGAIN</button>`;
+}
+</script>
+</body>
+</html>

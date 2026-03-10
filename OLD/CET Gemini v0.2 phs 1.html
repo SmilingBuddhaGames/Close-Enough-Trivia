@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLOSE ENOUGH TRIVIA - SHELL</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* --- THEME ENGINE (NEON NOIR) --- */
+:root {
+    --gold: #ffd700;
+    --gold-dark: #9a6800;
+    --gold-mid: #e6a800;
+    --purple-deep: #110025;
+    --purple-mid: #3a007a;
+    --bg-gradient: linear-gradient(150deg, #5a0a9e 0%, #1a0035 60%, #0d001f 100%);
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 400;
+    background: var(--bg-gradient);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* --- LAYOUT SHELL --- */
+#app {
+    width: 95%;
+    max-width: 1200px;
+    padding: 30px 0;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+/* --- TYPOGRAPHY --- */
+h1 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 54px;
+    font-weight: 700;
+    margin: 0 0 16px 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(255,215,0,0.35), 0 3px 0 rgba(0,0,0,0.4);
+    line-height: 1.05;
+}
+
+h2 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 26px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    letter-spacing: 0.3px;
+}
+
+.hint {
+    font-size: 15px;
+    font-style: italic;
+    color: rgba(255,255,255,0.6);
+    margin-top: 12px;
+}
+
+/* --- UI ELEMENTS --- */
+button {
+    padding: 13px 28px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(to bottom, #ffd700, #e09800);
+    color: #160030;
+    cursor: pointer;
+    box-shadow: 0 5px 0 var(--gold-dark), 0 8px 20px rgba(0,0,0,0.35);
+    transition: all .12s ease;
+    margin: 10px;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(to bottom, #ffe033, #f5b200);
+}
+
+button:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 var(--gold-dark);
+}
+
+/* --- GAME SCREENS (Hidden by default) --- */
+.screen { display: none; }
+.screen.active { display: block; animation: fadeIn 0.5s ease; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- DEBUG LOG (For Phase 2) --- */
+#bootLog {
+    font-family: monospace;
+    color: #00ff00;
+    background: rgba(0,0,0,0.5);
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 500px;
+    margin: 20px auto;
+    text-align: left;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+</style>
+</head>
+<body>
+
+<div id="app">
+    
+    <div id="screen-boot" class="screen active">
+        <h1>System Loading...</h1>
+        <div id="bootLog">
+            > Shell Initialized.<br>
+            > CSS Theme Loaded.<br>
+            > Waiting for Engine...
+        </div>
+    </div>
+
+    <div id="screen-title" class="screen">
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,215,0,0.6);margin-bottom:14px;">For Both Nerds & Normies, it's...</div>
+        <h1>Close Enough<br>Trivia</h1>
+        <div style="font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;color:rgba(255,255,255,0.35);margin-top:8px;">REBUILT ENGINE V2.0</div>
+        
+        <div style="margin-top: 40px;">
+            <button onclick="alert('Phase 2 Pending: Audio/CSV Load')">1 Player</button>
+            <button onclick="alert('Phase 2 Pending: Audio/CSV Load')">2 Players</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- THE ENGINE SHELL ---
+    
+    // Simple logger to show things are working
+    function log(msg) {
+        const el = document.getElementById("bootLog");
+        el.innerHTML += `> ${msg}<br>`;
+    }
+
+    window.onload = function() {
+        log("Window Loaded.");
+        log("Checking Libraries...");
+        
+        if(typeof d3 === 'undefined') {
+            log("ERROR: D3.js not found. Check internet.");
+            return;
+        }
+        log("D3.js confirmed.");
+
+        if(typeof topojson === 'undefined') {
+            log("ERROR: TopoJSON not found.");
+            return;
+        }
+        log("TopoJSON confirmed.");
+
+        // SIMULATE LOADING (Transition to Title)
+        setTimeout(() => {
+            log("Transitioning to Title...");
+            showScreen("screen-title");
+        }, 1500); // 1.5 second delay just to show off the loading screen
+    };
+
+    function showScreen(id) {
+        // Hide all screens
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        // Show target
+        document.getElementById(id).classList.add('active');
+    }
+
+</script>
+
+</body>
+</html>
