@@ -138,66 +138,6 @@ rect.pinch-bar:hover { fill: rgba(255,215,0,0.3) !important; }
 .draw-buttons { display: flex; gap: 10px; justify-content: center; }
 .draw-buttons button.erase-btn { background: linear-gradient(to bottom, #888, #555); color: white; box-shadow: 0 5px 0 #333; }
 .err-msg { color: #ff5555; font-weight: bold; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 3px; display:inline-block; }
-
-/* --- MOBILE RESPONSIVE --- */
-@media (max-width: 600px) {
-    body { align-items: flex-start; }
-    #app { width: 100%; padding: 10px; }
-
-    /* Typography scale-down */
-    h1 { font-size: 32px; letter-spacing: 1px; }
-    h2 { font-size: 28px; line-height: 1.3; margin-bottom: 10px; }
-    .hint { font-size: 16px; margin-bottom: 10px; min-height: 16px; }
-    .answer-text { font-size: 24px; margin: 10px 0; }
-    .ppn-display { font-size: 32px; }
-    .ppn-label { font-size: 11px; letter-spacing: 1px; }
-    .selection-display { font-size: 20px; }
-
-    /* Panels stack vertically */
-    .screen-container { min-height: auto; flex-direction: column; }
-    .left-panel { min-width: 0; padding: 20px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    .right-panel { min-width: 0; padding: 20px; }
-
-    /* Center screen layout */
-    .center-screen { min-height: 50vh; gap: 16px; }
-
-    /* Buttons */
-    button { padding: 12px 20px; font-size: 16px; margin: 6px; }
-
-    /* Map & Draw containers */
-    #mapBox { height: 280px; margin-bottom: 10px; }
-    #resultMapBox { height: 200px; width: 95%; }
-    #drawContainer { height: 280px; }
-    #rulerContainer { height: 140px; }
-
-    /* Bonus grid */
-    .bonus-grid { grid-template-columns: 1fr; gap: 6px; }
-    .bonus-item { font-size: 15px; padding: 10px; }
-
-    /* Bonus result animations */
-    .bonus-anim-section { max-width: 100%; }
-    .bonus-anim-grid { grid-template-columns: 1fr; gap: 3px; }
-    .bonus-anim-item { font-size: 14px; padding: 4px 8px; white-space: normal !important; overflow: visible !important; }
-    .bonus-anim-header { font-size: 22px; margin: 8px 0 4px 0; }
-
-    /* Score boxes */
-    .score-box { padding: 10px; }
-    .score-val { font-size: 40px; }
-    .score-label { font-size: 11px; }
-    .score-box-1p { padding: 6px 14px; gap: 10px; }
-
-    /* PPN row */
-    .ppn-row { gap: 8px; margin: 6px 0; }
-
-    /* Debug */
-    .debug-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-    .debug-item { padding: 10px; }
-
-    /* Override inline font-sizes on instructions & bonus choice screens */
-    .center-screen h2 { font-size: 28px !important; }
-    .center-screen > div { max-width: 100%; }
-    .center-screen > div > div { font-size: clamp(16px, 5vw, 36px) !important; }
-}
 </style>
 </head>
 <body>
