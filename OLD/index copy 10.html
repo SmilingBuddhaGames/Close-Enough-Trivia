@@ -968,14 +968,14 @@ function showBonusResult2P(choices, q) {
                     if (tag.green) AudioEngine.playTagBell();
                     else AudioEngine.playTagBzz();
                 }, delay * 1000);
-                delay += 0.2;
+                delay += 0.3;
             });
-            // 0.3s gap after this line completes (unless it's the last group)
-            if (gi < tagGroups.length - 1) delay += 0.3;
+            // 0.5s gap after this line completes (unless it's the last group)
+            if (gi < tagGroups.length - 1) delay += 0.5;
         });
 
         // Call onDone after all tags + buffer
-        if (tagGroups.length > 0) delay += 0.2;
+        if (tagGroups.length > 0) delay += 0.3;
         setTimeout(onDone, delay * 1000);
     }
 
@@ -984,7 +984,7 @@ function showBonusResult2P(choices, q) {
 
     // Phase 1: After real answers fly in, animate real tags
     animateTags(realAnswers, 'real', realFlyDuration, function() {
-        // Wait 0.2s, show FAKE ANSWERS header + grid
+        // Wait 0.3s, show FAKE ANSWERS header + grid
         setTimeout(function() {
             const fakeHeader = document.getElementById('fakeHeader');
             const fakeGrid = document.getElementById('fakeGrid');
@@ -1002,14 +1002,14 @@ function showBonusResult2P(choices, q) {
 
             // Phase 2: After fake answers fly in, animate fake tags
             animateTags(fakeAnswers, 'fake', fakeFlyDuration, function() {
-                // Phase 3: Wait 0.2s, show finale
+                // Phase 3: Wait 0.3s, show finale
                 setTimeout(function() {
                     const finale = document.getElementById('twoPlayerFinale');
                     if (finale) finale.style.display = 'block';
                     AudioEngine.playBonusWin();
-                }, 200);
+                }, 300);
             });
-        }, 200);
+        }, 300);
     });
 }
 
