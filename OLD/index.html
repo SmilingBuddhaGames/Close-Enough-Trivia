@@ -1188,7 +1188,7 @@ function renderMap(q, container) {
     Game.lastMapProj = projectionType;
     d3.json(url).then(data => {
         let features;
-        if(q.geo_source === 'nyc_boroughs') { features = data.features; features.forEach(f => { let name = f.properties.BoroName || f.properties.name; if(name === "Bronx") name = "The Bronx"; f.properties.name = name; }); }
+        if(q.geo_source === 'nyc_boroughs') { features = data.features; features.forEach(f => { let name = f.properties.BoroName || f.properties.name; if(name === "Bronx") name = "The Bronx"; f.properties.name = name; }); } 
         else { const key = Object.keys(data.objects).find(k => k.match(/state|countr/)) || Object.keys(data.objects)[0]; features = topojson.feature(data, data.objects[key]).features; }
         if(q.visible_ids) { const whitelist = q.visible_ids.split(",").map(s => s.trim()); features = features.filter(f => whitelist.includes(f.properties.name)); }
         Game.lastMapFeatures = features; 
