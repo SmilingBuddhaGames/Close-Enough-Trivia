@@ -694,13 +694,13 @@ function renderBonusGrid(mode) {
     }
 
     container.innerHTML = `
-        <div class="screen-container" style="flex-direction:column;">
-            <div style="padding:30px 40px 10px; text-align:center; border-bottom:1px solid rgba(255,255,255,0.1);">
+        <div class="screen-container">
+            <div class="left-panel">
                 <h2>${q.question_text || ""}</h2>
-                <h2 style="color:var(--gold); margin-bottom:10px;">${headerText}</h2>
                 <div class="hint">${subText}</div>
             </div>
-            <div class="right-panel" style="width:100%;">
+            <div class="right-panel">
+                <h2 style="color:var(--gold); margin:0 0 15px 0; text-align:center;">${headerText}</h2>
                 <div class="bonus-grid">
                     ${choices.map(c => `<div class="bonus-item" onclick="toggleBonus(this, ${c.id})">${c.txt}</div>`).join('')}
                 </div>
