@@ -52,7 +52,7 @@ button:disabled { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; }
 /* MODULES */
 #mapBox, #resultMapBox { width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 20px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
 #resultMapBox { height: 300px; width: 80%; margin: 10px auto; } 
-#rulerContainer { width: 100%; height: 180px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; position: relative; touch-action: none; }
+#rulerContainer { width: 100%; height: 180px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; position: relative; }
 
 /* MAP STYLES */
 path, rect, circle, polygon, ellipse { transition: fill 0.2s, stroke 0.2s; cursor: pointer; stroke: white; stroke-width: 0.5px; fill: rgba(255,255,255,0.05); }
@@ -130,9 +130,9 @@ rect.pinch-bar:hover { fill: rgba(255,215,0,0.3) !important; }
 #bootLog { font-family: monospace; color: #00ff00; background: rgba(0,0,0,0.95); padding: 10px; text-align: left; position: fixed; bottom: 10px; right: 10px; border-radius: 5px; font-size: 10px; pointer-events: none; opacity: 1; max-height: 100px; overflow: hidden; z-index: 99999; border: 1px solid #333; }
 
 /* DRAW QUESTION */
-#drawContainer { position: relative; width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; cursor: crosshair; margin-bottom: 15px; touch-action: none; }
+#drawContainer { position: relative; width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; cursor: crosshair; margin-bottom: 15px; }
 #drawContainer img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-#drawCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
+#drawCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .draw-warning { font-family: 'Oswald', sans-serif; font-size: 22px; color: #ff3333; text-transform: uppercase; min-height: 28px; margin-bottom: 5px; }
 .draw-buttons { display: flex; gap: 10px; justify-content: center; }
 .draw-buttons button.erase-btn { background: linear-gradient(to bottom, #888, #555); color: white; box-shadow: 0 5px 0 #333; }
@@ -1029,51 +1029,13 @@ function renderPinch(q, container) {
     update();
 
     let dragMode = null, startX, startL, startR;
-    
-    function startDrag(mx) {
+    bar.on("mousedown", e => {
+        const mx = d3.pointer(e)[0];
         const visualL = (x(r)-x(l) < 15) ? x(l)-7.5 : x(l); const visualW = (x(r)-x(l) < 15) ? 15 : x(r)-x(l);
         const edgeZone = Math.min(20, visualW / 3); 
         if(mx < visualL + edgeZone) dragMode = 'left'; else if(mx > visualL + visualW - edgeZone) dragMode = 'right'; else dragMode = 'move';
-        startX = mx; startL = l; startR = r; lastSoundVal = dragMode === 'right' ? r : l;
-    }
-
-    bar.on("mousedown", e => {
-        startDrag(d3.pointer(e)[0]);
+        startX = mx; startL = l; startR = r; lastSoundVal = dragMode === 'right' ? r : l; 
         d3.select(window).on("mousemove", onDrag).on("mouseup", stopDrag);
-    });
-
-    // TOUCH SUPPORT FOR PINCH BAR
-    bar.node().addEventListener("touchstart", function(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const pt = d3.pointer(touch, svg.node());
-        startDrag(pt[0]);
-    }, { passive: false });
-
-    svg.node().addEventListener("touchmove", function(e) {
-        if (!dragMode) return;
-        e.preventDefault();
-        const touch = e.touches[0];
-        const currX = d3.pointer(touch, svg.node())[0];
-        const deltaVal = (currX - startX) * ((max - min) / (width-40));
-        if(dragMode === 'move') {
-            let dl = startL + deltaVal, dr = startR + deltaVal;
-            if(dl < min) { dl=min; dr=min+(startR-startL); } if(dr > max) { dr=max; dl=max-(startR-startL); }
-            l = Math.round(dl/snap)*snap; r = Math.round(dr/snap)*snap;
-        } else if(dragMode === 'left') {
-            let newL = Math.round((startL+deltaVal)/snap)*snap; newL = Math.max(min, Math.min(r, newL));
-            if (maxSpan > 0 && (r - newL) > maxSpan) newL = r - maxSpan; l = newL;
-        } else if(dragMode === 'right') {
-            let newR = Math.round((startR+deltaVal)/snap)*snap; newR = Math.min(max, Math.max(l, newR));
-            if (maxSpan > 0 && (newR - l) > maxSpan) newR = l + maxSpan; r = newR;
-        }
-        const currentPpn = update();
-        const checkVal = dragMode === 'right' ? r : l;
-        if(Math.abs(checkVal - lastSoundVal) >= snap) { AudioEngine.playClick(currentPpn); lastSoundVal = checkVal; }
-    }, { passive: false });
-
-    svg.node().addEventListener("touchend", function(e) {
-        dragMode = null;
     });
 
     function onDrag(e) {
@@ -1381,55 +1343,6 @@ function renderDraw(q, container) {
     });
 
     canvasEl.addEventListener("mouseup", function(e) {
-        if (!isDrawing) return;
-        isDrawing = false;
-        if (points.length >= 3) {
-            shapeComplete = true;
-            drawShape();
-            updatePPN();
-            AudioEngine.playClick(50);
-        }
-    });
-
-    // TOUCH SUPPORT FOR DRAW CANVAS
-    function getTouchPos(e) {
-        const touch = e.touches[0];
-        const rect = canvasEl.getBoundingClientRect();
-        return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-    }
-
-    canvasEl.addEventListener("touchstart", function(e) {
-        if (shapeComplete) return;
-        e.preventDefault();
-        isDrawing = true;
-        drawSoundDist = 0;
-        totalLineLength = 0;
-        points = [getTouchPos(e)];
-        drawShape();
-    }, { passive: false });
-
-    canvasEl.addEventListener("touchmove", function(e) {
-        if (!isDrawing) return;
-        e.preventDefault();
-        const pos = getTouchPos(e);
-        const prev = points[points.length - 1];
-        const segLen = Math.hypot(pos.x - prev.x, pos.y - prev.y);
-        totalLineLength += segLen;
-        drawSoundDist += segLen;
-
-        points.push(pos);
-        drawShape();
-        if (points.length >= 3) {
-            const ppn = calcPPN();
-            document.getElementById("drawPpn").innerText = ppn;
-            if (drawSoundDist >= drawSoundInterval) {
-                drawSoundDist = 0;
-                AudioEngine.playDrawTone(ppn);
-            }
-        }
-    }, { passive: false });
-
-    canvasEl.addEventListener("touchend", function(e) {
         if (!isDrawing) return;
         isDrawing = false;
         if (points.length >= 3) {
