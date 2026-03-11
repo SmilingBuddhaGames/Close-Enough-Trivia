@@ -593,10 +593,12 @@ function startGame(mode) {
 function showInstructions() {
     document.getElementById("app").innerHTML = `
         <div class="center-screen">
-            <div style="max-width:560px;">
-                <div style="font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:3px;color:rgba(255,215,0,0.6);margin-bottom:20px;text-transform:uppercase;">How to Play</div>
+            <div style="max-width:700px;">
+                <div style="font-family:'Oswald',sans-serif;font-size:65px;letter-spacing:3px;color:rgba(255,215,0,0.6);margin-bottom:20px;text-transform:uppercase;">How to Play</div>
+                <div style="font-size:44px;line-height:1.5;font-weight:300;margin-bottom:20px;">
+                You don't have to be exactly right, just <em style="font-style:italic;font-weight:600;color:var(--gold);">CLOSE ENOUGH</em>.
+                </div>
                 <div style="font-size:22px;line-height:1.7;font-weight:300;">
-                You don't have to be exactly right, just <em style="font-style:italic;font-weight:600;color:var(--gold);">CLOSE ENOUGH</em>.<br><br>
                 Pick a range of answers, and if the correct answer is inside your range, you get points!
                 </div>
             </div>
@@ -692,13 +694,13 @@ function renderBonusGrid(mode) {
     }
 
     container.innerHTML = `
-        <div class="screen-container">
-            <div class="left-panel">
-                <h2 style="color:var(--gold); margin-bottom:10px;">${headerText}</h2>
+        <div class="screen-container" style="flex-direction:column;">
+            <div style="padding:30px 40px 10px; text-align:center; border-bottom:1px solid rgba(255,255,255,0.1);">
                 <h2>${q.question_text || ""}</h2>
+                <h2 style="color:var(--gold); margin-bottom:10px;">${headerText}</h2>
                 <div class="hint">${subText}</div>
             </div>
-            <div class="right-panel">
+            <div class="right-panel" style="width:100%;">
                 <div class="bonus-grid">
                     ${choices.map(c => `<div class="bonus-item" onclick="toggleBonus(this, ${c.id})">${c.txt}</div>`).join('')}
                 </div>
