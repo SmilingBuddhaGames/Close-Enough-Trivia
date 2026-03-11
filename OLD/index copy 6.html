@@ -127,7 +127,7 @@ rect.pinch-bar:hover { fill: rgba(255,215,0,0.3) !important; }
 .bonus-dot-wrong { background: rgba(180,180,180,0.6); }
 
 /* LOADING LOG */
-#bootLog { font-family: monospace; color: #00ff00; background: rgba(0,0,0,0.95); padding: 6px; text-align: left; position: fixed; bottom: 10px; right: 10px; border-radius: 5px; font-size: 7px; pointer-events: none; opacity: 1; max-height: 80px; overflow: hidden; z-index: 99999; border: 1px solid #333; }
+#bootLog { font-family: monospace; color: #00ff00; background: rgba(0,0,0,0.95); padding: 10px; text-align: left; position: fixed; bottom: 10px; right: 10px; border-radius: 5px; font-size: 10px; pointer-events: none; opacity: 1; max-height: 100px; overflow: hidden; z-index: 99999; border: 1px solid #333; }
 
 /* DRAW QUESTION */
 #drawContainer { position: relative; width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; cursor: crosshair; margin-bottom: 15px; touch-action: none; }
@@ -227,22 +227,22 @@ const AudioEngine = {
         gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
         osc.stop(t + duration);
     },
-    // RANGEFRAME DRAG CLICK — soft sine tone, pitch scales with PPN
+    // RANGEFRAME DRAG CLICK — square wave, percussive, pitch scales with PPN
     playClick: function(ppn) {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = "sine";
-        const minFreq = 250, maxFreq = 900;
+        osc.type = "square";
+        const minFreq = 500, maxFreq = 1800;
         osc.frequency.value = minFreq + (ppn / 100) * (maxFreq - minFreq);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         const now = this.ctx.currentTime;
         gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.15, now + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        gain.gain.linearRampToValueAtTime(0.4, now + 0.002);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
         osc.start(now);
-        osc.stop(now + 0.08);
+        osc.stop(now + 0.045);
     },
     playMapClick: function(count, isAdding) {
         if (!this.ctx) return;
@@ -697,7 +697,7 @@ function renderBonusGrid(mode) {
         <div class="screen-container">
             <div class="left-panel">
                 <h2>${q.question_text || ""}</h2>
-                <div class="hint" style="font-size:14px;">${subText}</div>
+                <div class="hint">${subText}</div>
             </div>
             <div class="right-panel">
                 <h2 style="color:var(--gold); margin:0 0 15px 0; text-align:center;">${headerText}</h2>
