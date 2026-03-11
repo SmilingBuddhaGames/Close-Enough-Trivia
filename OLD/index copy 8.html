@@ -697,9 +697,9 @@ function renderBonusGrid(mode) {
 
     container.innerHTML = `
         <div class="screen-container">
-            <div class="left-panel" style="padding-bottom:15px;">
-                <h2 style="font-size:41px;">${q.question_text || ""}</h2>
-                <div class="hint" style="font-size:16px; margin-bottom:0;">${subText}</div>
+            <div class="left-panel">
+                <h2>${q.question_text || ""}</h2>
+                <div class="hint" style="font-size:9px;">${subText}</div>
             </div>
             <div class="right-panel" style="padding-top:15px;">
                 <h2 style="color:var(--gold); margin:0 0 8px 0; text-align:center;">${headerText}</h2>
