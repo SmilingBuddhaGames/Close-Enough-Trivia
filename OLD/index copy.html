@@ -811,8 +811,8 @@ function showBonusResult1P(pts, choices, targetIsTruth, correctCount, incorrectC
     choices.forEach(c => {
         const wasPicked = Game.bonusSelection.has(c.id);
         const isCorrect = (targetIsTruth && c.isFact) || (!targetIsTruth && !c.isFact);
-        if (wasPicked) picked.push({ txt: c.txt, correct: isCorrect, isFact: c.isFact });
-        else unpicked.push({ txt: c.txt, correct: isCorrect, isFact: c.isFact });
+        if (wasPicked) picked.push({ txt: c.txt, correct: isCorrect });
+        else unpicked.push({ txt: c.txt, correct: isCorrect });
     });
 
     const scoreHTML = `<div class="score-box-1p"><div class="score-label">YOUR TOTAL SCORE:</div><div class="score-val">${Game.scores[0]}</div></div>`;
@@ -824,10 +824,10 @@ function showBonusResult1P(pts, choices, targetIsTruth, correctCount, incorrectC
     const pickedHTML = picked.map((c, i) => {
         const bg = c.correct ? 'rgba(90,10,158,0.85)' : 'rgba(120,120,120,0.5)';
         const textColor = c.correct ? 'var(--gold)' : 'white';
-        const tag = c.isFact
-            ? `<span style="color:#00dd44; font-weight:600; margin-left:6px;">(REAL)</span>`
-            : `<span style="color:#ff4444; font-weight:600; margin-left:6px;">(FAKE)</span>`;
-        return `<div class="bonus-anim-item fly-bottom" style="background:${bg}; color:${textColor}; animation-delay:${(i * stagger).toFixed(2)}s"><span>${c.txt}${tag}</span></div>`;
+        const mark = c.correct
+            ? `<span class="bonus-mark" style="color:#00dd44;">✓</span>`
+            : `<span class="bonus-mark-x" style="color:#ff4444;">✗</span>`;
+        return `<div class="bonus-anim-item fly-bottom" style="background:${bg}; color:${textColor}; animation-delay:${(i * stagger).toFixed(2)}s">${mark}<span>${c.txt}</span></div>`;
     }).join('');
 
     // "YOU DIDN'T PICK" header delay
@@ -835,10 +835,10 @@ function showBonusResult1P(pts, choices, targetIsTruth, correctCount, incorrectC
 
     // UNPICKED items — fly from right
     const unpickedHTML = unpicked.map((c, i) => {
-        const tag = c.isFact
-            ? `<span style="color:#00dd44; font-weight:600; margin-left:6px;">(REAL)</span>`
-            : `<span style="color:#ff4444; font-weight:600; margin-left:6px;">(FAKE)</span>`;
-        return `<div class="bonus-anim-item fly-right" style="background:rgba(0,0,0,0.7); color:rgba(170,170,170,0.85); animation-delay:${(didntPickDelay + i * stagger).toFixed(2)}s"><span>${c.txt}${tag}</span></div>`;
+        const mark = c.correct
+            ? `<span class="bonus-mark" style="color:#00dd44;">✓</span>`
+            : `<span class="bonus-mark-x" style="color:#ff4444;">✗</span>`;
+        return `<div class="bonus-anim-item fly-right" style="background:rgba(0,0,0,0.7); color:rgba(170,170,170,0.85); animation-delay:${(didntPickDelay + i * stagger).toFixed(2)}s">${mark}<span>${c.txt}</span></div>`;
     }).join('');
 
     // Finale delay — after all animations complete
