@@ -31,9 +31,8 @@ h2 { font-family: 'Oswald', sans-serif; font-size: 48px; line-height: 1.4; margi
 .answer-text { font-family: 'Barlow', sans-serif; font-size: 40px; font-weight: 500; line-height: 1.3; margin: 20px 0; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
 
 .hint { font-style: italic; opacity: 0.8; font-size: 24px; margin-bottom: 20px; min-height: 24px; line-height: 1.4; }
-.ppn-display { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); }
-.ppn-label { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6; }
-.ppn-row { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+.ppn-display { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); margin: 5px 0; }
+.ppn-label { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6; margin-bottom: 5px; margin-top: 15px; }
 .selection-display { font-family: 'Oswald', sans-serif; font-size: 28px; color: white; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
 
 /* CONTROLS */
@@ -224,7 +223,6 @@ const AudioEngine = {
         osc.frequency.value = freq;
         osc.connect(gain);
         gain.connect(this.ctx.destination);
-        gain.gain.setValueAtTime(0.25, t);
         osc.start(t);
         gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
         osc.stop(t + duration);
@@ -241,7 +239,7 @@ const AudioEngine = {
         gain.connect(this.ctx.destination);
         const now = this.ctx.currentTime;
         gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.25, now + 0.015);
+        gain.gain.linearRampToValueAtTime(0.15, now + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.start(now);
         osc.stop(now + 0.08);
@@ -264,7 +262,7 @@ const AudioEngine = {
         gain.connect(this.ctx.destination);
         const now = this.ctx.currentTime;
         gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.25, now + 0.015);
+        gain.gain.linearRampToValueAtTime(0.15, now + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.start(now);
         osc.stop(now + 0.08);
@@ -291,7 +289,7 @@ const AudioEngine = {
         o2.type = 'triangle'; o2.frequency.value = B4;
         o2.connect(g2); g2.connect(this.ctx.destination);
         g2.gain.setValueAtTime(0.0001, t2);
-        g2.gain.linearRampToValueAtTime(0.25, t2 + 0.005);
+        g2.gain.linearRampToValueAtTime(0.3, t2 + 0.005);
         g2.gain.exponentialRampToValueAtTime(0.0001, t2 + mainDur);
         o2.start(t2); o2.stop(t2 + mainDur);
 
@@ -311,12 +309,12 @@ const AudioEngine = {
         const osc1 = this.ctx.createOscillator(); const gain1 = this.ctx.createGain();
         osc1.type = 'sawtooth'; osc1.frequency.setValueAtTime(146.8, now); osc1.frequency.linearRampToValueAtTime(155.6, now + 0.1);
         osc1.connect(gain1); gain1.connect(this.ctx.destination);
-        osc1.start(now); gain1.gain.setValueAtTime(0.25, now); gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc1.stop(now + 0.4);
+        osc1.start(now); gain1.gain.setValueAtTime(0.3, now); gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc1.stop(now + 0.4);
         const t2 = now + 0.5;
         const osc2 = this.ctx.createOscillator(); const gain2 = this.ctx.createGain();
         osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(103.8, t2); osc2.frequency.linearRampToValueAtTime(110.0, t2 + 0.1);
         osc2.connect(gain2); gain2.connect(this.ctx.destination);
-        osc2.start(t2); gain2.gain.setValueAtTime(0.25, t2); gain2.gain.exponentialRampToValueAtTime(0.01, t2 + 0.6); osc2.stop(t2 + 0.6);
+        osc2.start(t2); gain2.gain.setValueAtTime(0.3, t2); gain2.gain.exponentialRampToValueAtTime(0.01, t2 + 0.6); osc2.stop(t2 + 0.6);
     },
     playNeutral: function() {
         if (!this.ctx) return;
@@ -338,7 +336,7 @@ const AudioEngine = {
             osc.connect(gain); gain.connect(this.ctx.destination);
             const start = now + (i * 0.08);
             gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.linearRampToValueAtTime(0.25, start + 0.01);
+            gain.gain.linearRampToValueAtTime(0.35, start + 0.01);
             gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
             osc.start(start); osc.stop(start + 0.22);
         });
@@ -377,7 +375,7 @@ const AudioEngine = {
         osc2.type = "sine"; osc2.frequency.value = upper;
         osc2.connect(g2); g2.connect(this.ctx.destination);
         const t2 = now + 0.05;
-        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.25, t2 + 0.01);
+        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.28, t2 + 0.01);
         g2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.22);
         osc2.start(t2); osc2.stop(t2 + 0.22);
     },
@@ -396,7 +394,7 @@ const AudioEngine = {
         osc2.type = "sine"; osc2.frequency.value = upper;
         osc2.connect(g2); g2.connect(this.ctx.destination);
         const t2 = now + 0.05;
-        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.25, t2 + 0.01);
+        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.28, t2 + 0.01);
         g2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.22);
         osc2.start(t2); osc2.stop(t2 + 0.22);
     },
@@ -415,7 +413,7 @@ const AudioEngine = {
         osc2.type = "sine"; osc2.frequency.value = upper;
         osc2.connect(g2); g2.connect(this.ctx.destination);
         const t2 = now + 0.05;
-        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.25, t2 + 0.01);
+        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.28, t2 + 0.01);
         g2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.22);
         osc2.start(t2); osc2.stop(t2 + 0.22);
     },
@@ -437,7 +435,7 @@ const AudioEngine = {
             osc.connect(gain); gain.connect(this.ctx.destination);
             const t = now + n.start;
             gain.gain.setValueAtTime(0.0001, t);
-            gain.gain.linearRampToValueAtTime(0.25, t + 0.01);
+            gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
             gain.gain.exponentialRampToValueAtTime(0.0001, t + n.dur);
             osc.start(t); osc.stop(t + n.dur);
         });
@@ -654,8 +652,8 @@ function renderBonusChoice(q, container) {
     container.innerHTML = `
         <div class="center-screen">
             <div>
-                <div style="font-family:'Oswald'; font-size:36px; color:var(--gold); letter-spacing:2px; margin-bottom:10px;">BONUS ROUND CATEGORY:</div>
-                <h2 style="font-size:112px; margin:0;">${q.category || "General Knowledge"}</h2>
+                <div style="font-family:'Oswald'; font-size:18px; color:var(--gold); letter-spacing:2px; margin-bottom:10px;">BONUS ROUND CATEGORY:</div>
+                <h2 style="font-size:56px; margin:0;">${q.category || "General Knowledge"}</h2>
             </div>
             <div style="font-size:24px; max-width:600px; line-height:1.4;">
                 DO YOU WANT TO GET POINTS FOR EVERY <strong>REAL ANSWER</strong> YOU CHOOSE, OR EVERY <strong>FAKE ANSWER</strong>?
@@ -699,14 +697,15 @@ function renderBonusGrid(mode) {
         <div class="screen-container">
             <div class="left-panel">
                 <h2>${q.question_text || ""}</h2>
-                <div class="hint" style="font-size:9px;">${subText}</div>
+                <div class="hint" style="font-size:14px;">${subText}</div>
             </div>
-            <div class="right-panel" style="padding-top:15px;">
-                <h2 style="color:var(--gold); margin:0 0 8px 0; text-align:center;">${headerText}</h2>
+            <div class="right-panel">
+                <h2 style="color:var(--gold); margin:0 0 15px 0; text-align:center;">${headerText}</h2>
                 <div class="bonus-grid">
                     ${choices.map(c => `<div class="bonus-item" onclick="toggleBonus(this, ${c.id})">${c.txt}</div>`).join('')}
                 </div>
-                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="bonusPpn">0</div></div>
+                <div class="ppn-label">Potential Points</div>
+                <div class="ppn-display" id="bonusPpn">0</div>
                 <button onclick="submitBonus('${mode}')">SUBMIT ANSWER</button>
             </div>
         </div>
@@ -977,7 +976,8 @@ function renderPinch(q, container) {
             <div class="right-panel">
                 <div class="selection-display" id="selectionDisp">SELECTED: 0</div>
                 <div id="rulerContainer"></div>
-                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="ppnDisplay">0</div></div>
+                <div class="ppn-label">Potential Points</div>
+                <div class="ppn-display" id="ppnDisplay">0</div>
                 <button onclick="Game.submitPinch()">SUBMIT ANSWER</button>
             </div>
         </div>
@@ -1112,7 +1112,8 @@ function renderMap(q, container) {
             </div>
             <div class="right-panel">
                 <div id="mapBox">Loading Map...</div>
-                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="mapPpn">0</div></div>
+                <div class="ppn-label">Potential Points</div>
+                <div class="ppn-display" id="mapPpn">0</div>
                 <button onclick="Game.submitMap()">SUBMIT ANSWER</button>
             </div>
         </div>
@@ -1267,7 +1268,8 @@ function renderDraw(q, container) {
                     <img id="drawImg" src="${q.image_file}" alt="Question Image">
                     <canvas id="drawCanvas"></canvas>
                 </div>
-                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="drawPpn">100</div></div>
+                <div class="ppn-label">Potential Points</div>
+                <div class="ppn-display" id="drawPpn">100</div>
                 <div class="draw-buttons">
                     <button class="erase-btn" onclick="Game.eraseDraw()">ERASE</button>
                     <button id="drawSubmitBtn" onclick="Game.submitDraw()" disabled>SUBMIT ANSWER</button>
