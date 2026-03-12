@@ -57,7 +57,7 @@ button:disabled { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; }
 
 /* MAP STYLES */
 path, rect, circle, polygon, ellipse { transition: fill 0.2s, stroke 0.2s; cursor: pointer; stroke: white; stroke-width: 0.5px; fill: rgba(255,255,255,0.05); }
-@media (hover: hover) { path:hover, rect:hover, circle:hover, polygon:hover, ellipse:hover { fill: rgba(255,255,255,0.2) !important; } }
+path:hover, rect:hover, circle:hover, polygon:hover, ellipse:hover { fill: rgba(255,255,255,0.2) !important; }
 path.selected, rect.selected, circle.selected, polygon.selected, ellipse.selected { fill: #ffd700 !important; stroke: #fff; stroke-width: 1px; }
 path.correct-highlight, rect.correct-highlight, circle.correct-highlight, polygon.correct-highlight, ellipse.correct-highlight { fill: #ffd700 !important; stroke: #fff; stroke-width: 3px; }
 
