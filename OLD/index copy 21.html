@@ -1399,26 +1399,6 @@ function renderMap(q, container) {
         if(q.geo_source === 'nyc_boroughs') { features = data.features; features.forEach(f => { let name = f.properties.BoroName || f.properties.name; if(name === "Bronx") name = "The Bronx"; f.properties.name = name; }); }
         else { const key = Object.keys(data.objects).find(k => k.match(/state|countr/)) || Object.keys(data.objects)[0]; features = topojson.feature(data, data.objects[key]).features; }
         if(q.visible_ids) { const whitelist = q.visible_ids.split(",").map(s => s.trim()); const before = features.length; features = features.filter(f => whitelist.includes(f.properties.name)); log(`MAP filter: ${features.length}/${whitelist.length} matched (from ${before} total features). Names: ${features.map(f=>f.properties.name).join(', ')}`); const missed = whitelist.filter(n => !features.find(f => f.properties.name === n)); if(missed.length) log(`MAP MISSING: ${missed.join(', ')}`); }
-        // Strip overseas territory polygons that blow up the bounding box for regional maps
-        if(q.visible_ids && q.geo_source === 'world_countries' && features.length > 1) {
-            const centroids = features.map(f => d3.geoCentroid(f));
-            const medLon = centroids.map(c=>c[0]).sort((a,b)=>a-b)[Math.floor(centroids.length/2)];
-            const medLat = centroids.map(c=>c[1]).sort((a,b)=>a-b)[Math.floor(centroids.length/2)];
-            const threshold = 30; // degrees from median — generous for a regional cluster
-            features = features.map(f => {
-                if(f.geometry.type !== 'MultiPolygon') return f;
-                const kept = f.geometry.coordinates.filter(poly => {
-                    const temp = {type:'Polygon', coordinates: poly};
-                    const c = d3.geoCentroid(temp);
-                    return Math.abs(c[0]-medLon) < threshold && Math.abs(c[1]-medLat) < threshold;
-                });
-                if(kept.length === 0) return f; // safety: don't delete a country entirely
-                const clipped = Object.assign({}, f, {geometry: {type: kept.length === 1 ? 'Polygon' : 'MultiPolygon', coordinates: kept.length === 1 ? kept[0] : kept}});
-                clipped.properties = f.properties;
-                return clipped;
-            });
-            log(`MAP clipped overseas territories (median center: ${medLon.toFixed(1)}, ${medLat.toFixed(1)})`);
-        }
         Game.lastMapFeatures = features; 
         const width = 600, height = 400;
         const svg = d3.select("#mapBox").html("").append("svg").attr("viewBox", `0 0 ${width} ${height}`).style("width", "100%").style("height", "100%");
