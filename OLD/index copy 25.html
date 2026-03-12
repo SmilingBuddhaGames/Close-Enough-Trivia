@@ -631,44 +631,19 @@ window.onload = async function() {
         return;
     }
 
-    // Store pools for reuse across cycles
-    Game.pools = { pinch: pinch || [], map: map || [], bonus: bonus || [], draw: draw || [] };
-    Game.history = { pinch: [], map: [], bonus: [], draw: [] };
-
-    buildDeck();
-    log("Deck Ready. Launching UI.");
-    showTitleScreen();
-};
-
-function buildDeck() {
     const shuffle = arr => arr.sort(() => Math.random() - 0.5);
-
-    // Shuffle with history-avoidance: unseen questions first, then seen ones
-    function smartShuffle(pool, category) {
-        const seen = Game.history[category];
-        const unseen = pool.filter(q => !seen.includes(q.id));
-        const already = pool.filter(q => seen.includes(q.id));
-        // If all have been seen, reset history for this category
-        if (unseen.length === 0) {
-            Game.history[category] = [];
-            return shuffle([...pool]);
-        }
-        return [...shuffle(unseen), ...shuffle(already)];
-    }
-
-    const pinch = smartShuffle(Game.pools.pinch, 'pinch');
-    const map = smartShuffle(Game.pools.map, 'map');
-    const bonus = smartShuffle(Game.pools.bonus, 'bonus');
-    const draw = smartShuffle(Game.pools.draw, 'draw');
+    if(map) shuffle(map); if(bonus) shuffle(bonus); if(draw) shuffle(draw);
 
     // Split pinch into normal and seasoning pools
     let pinchNormal = [], pinchSeasoning = [];
-    pinch.forEach(q => {
-        if((q.role || '').trim().toLowerCase() === 'seasoning') pinchSeasoning.push(q);
-        else pinchNormal.push(q);
-    });
-    log(`Pinch deck: ${pinchNormal.length} normal, ${pinchSeasoning.length} seasoning`);
-
+    if(pinch) {
+        pinch.forEach(q => {
+            if((q.role || '').trim().toLowerCase() === 'seasoning') pinchSeasoning.push(q);
+            else pinchNormal.push(q);
+        });
+        shuffle(pinchNormal); shuffle(pinchSeasoning);
+        log(`Pinch deck: ${pinchNormal.length} normal, ${pinchSeasoning.length} seasoning`);
+    }
     // Pinch slots 1 & 2 from normal pool, slot 3 from combined leftover normal + seasoning pool
     const p1 = pinchNormal[0] || null;
     const p2 = pinchNormal[1] || null;
@@ -678,17 +653,14 @@ function buildDeck() {
     if(p3) log(`Slot 3 pick: ${p3.id} (${(p3.role||'').trim().toLowerCase() === 'seasoning' ? 'SEASONING' : 'normal'}) from pool of ${slot3Pool.length}`);
 
     Game.deck = [
-        p1, (map[0] || null),
-        p2, (draw[0] || null),
-        p3, (bonus[0] || null)
+        p1, (map && map[0]), 
+        p2, (draw && draw[0]), 
+        p3, (bonus && bonus[0])
     ].filter(Boolean);
 
-    // Record what we picked so next cycle avoids repeats
-    Game.deck.forEach(q => {
-        if (Game.history[q.type]) Game.history[q.type].push(q.id);
-    });
-    log(`History: pinch=${Game.history.pinch.length}, map=${Game.history.map.length}, draw=${Game.history.draw.length}, bonus=${Game.history.bonus.length}`);
-}
+    log("Deck Ready. Launching UI.");
+    showTitleScreen();
+};
 
 function openDebug() {
     const list = document.getElementById("debugList");
@@ -1896,7 +1868,7 @@ function showGameOver() {
         if(p1 > p2) msg = "PLAYER 1 WINS!"; else if(p2 > p1) msg = "PLAYER 2 WINS!"; else msg = "IT'S A TIE!";
         msg += `<br><span style="font-size:24px; opacity:0.8">P1: ${p1} - P2: ${p2}</span>`;
     } else { msg = `<div class="score-box-1p"><div class="score-label">YOUR FINAL SCORE:</div><div class="score-val">${Game.scores[0]}</div></div>`; }
-    document.getElementById("app").innerHTML = `<h1>GAME OVER</h1>${Game.mode === 2 ? '<div class="ppn-display">' + msg + '</div>' : msg}<button onclick="buildDeck(); showTitleScreen()">PLAY AGAIN</button>`;
+    document.getElementById("app").innerHTML = `<h1>GAME OVER</h1>${Game.mode === 2 ? '<div class="ppn-display">' + msg + '</div>' : msg}<button onclick="location.reload()">PLAY AGAIN</button>`;
 }
 </script>
 </body>
