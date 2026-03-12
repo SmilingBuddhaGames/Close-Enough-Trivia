@@ -1538,16 +1538,7 @@ function renderDraw(q, container) {
     function calcPPN() {
         const maxLen = getMaxLength();
         if (maxLen === 0) return 100;
-        const len = totalLineLength * linePpnRate;
-        // Grace zone: gentle drop from 100→95 over first 50% of canvas height
-        const graceLen = canvasEl.height * 0.5;
-        if (len <= graceLen) {
-            return Math.max(0, Math.round(100 - 5 * (len / graceLen)));
-        }
-        // Steep zone: drop from 95→0 over remaining distance to perimeter
-        const steepRange = maxLen - graceLen;
-        const steepProgress = (len - graceLen) / steepRange;
-        return Math.max(0, Math.round(95 * (1 - steepProgress)));
+        return Math.max(0, Math.round(100 * (1 - (totalLineLength * linePpnRate) / maxLen)));
     }
 
     function updatePPN() {
