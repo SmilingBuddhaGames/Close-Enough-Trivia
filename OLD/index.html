@@ -31,8 +31,9 @@ h2 { font-family: 'Oswald', sans-serif; font-size: 48px; line-height: 1.4; margi
 .answer-text { font-family: 'Barlow', sans-serif; font-size: 40px; font-weight: 500; line-height: 1.3; margin: 20px 0; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
 
 .hint { font-style: italic; opacity: 0.8; font-size: 24px; margin-bottom: 20px; min-height: 24px; line-height: 1.4; }
-.ppn-display { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); margin: 5px 0; }
-.ppn-label { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6; margin-bottom: 5px; margin-top: 15px; }
+.ppn-display { font-family: 'Oswald', sans-serif; font-size: 48px; color: var(--gold); }
+.ppn-label { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6; }
+.ppn-row { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
 .selection-display { font-family: 'Oswald', sans-serif; font-size: 28px; color: white; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
 
 /* CONTROLS */
@@ -52,17 +53,18 @@ button:disabled { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; }
 /* MODULES */
 #mapBox, #resultMapBox { width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 20px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
 #resultMapBox { height: 300px; width: 80%; margin: 10px auto; } 
-#rulerContainer { width: 100%; height: 180px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; position: relative; }
+#rulerContainer { width: 100%; height: 180px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; position: relative; touch-action: none; }
 
 /* MAP STYLES */
 path, rect, circle, polygon, ellipse { transition: fill 0.2s, stroke 0.2s; cursor: pointer; stroke: white; stroke-width: 0.5px; fill: rgba(255,255,255,0.05); }
 path:hover, rect:hover, circle:hover, polygon:hover, ellipse:hover { fill: rgba(255,255,255,0.2) !important; }
-.selected { fill: #ffd700 !important; stroke: #fff; stroke-width: 1px; }
-.correct-highlight { fill: #ffd700 !important; stroke: #fff; stroke-width: 3px; }
+path.selected, rect.selected, circle.selected, polygon.selected, ellipse.selected { fill: #ffd700 !important; stroke: #fff; stroke-width: 1px; }
+path.correct-highlight, rect.correct-highlight, circle.correct-highlight, polygon.correct-highlight, ellipse.correct-highlight { fill: #ffd700 !important; stroke: #fff; stroke-width: 3px; }
 
 /* PINCH BAR STYLE */
 rect.pinch-bar { fill: rgba(255,215,0,0.3) !important; stroke: #ffd700 !important; stroke-width: 3px !important; }
 rect.pinch-bar:hover { fill: rgba(255,215,0,0.3) !important; }
+@keyframes edgePulse { 0%, 100% { opacity: 0.3; filter: drop-shadow(0 0 4px #ffd700); } 50% { opacity: 1; filter: drop-shadow(0 0 14px #ffd700); } }
 
 /* BONUS GRID */
 .bonus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; text-align: left; margin-bottom: 20px; }
@@ -127,16 +129,80 @@ rect.pinch-bar:hover { fill: rgba(255,215,0,0.3) !important; }
 .bonus-dot-wrong { background: rgba(180,180,180,0.6); }
 
 /* LOADING LOG */
-#bootLog { font-family: monospace; color: #00ff00; background: rgba(0,0,0,0.95); padding: 10px; text-align: left; position: fixed; bottom: 10px; right: 10px; border-radius: 5px; font-size: 10px; pointer-events: none; opacity: 1; max-height: 100px; overflow: hidden; z-index: 99999; border: 1px solid #333; }
+#bootLog { font-family: monospace; color: #00ff00; background: rgba(0,0,0,0.95); padding: 6px; text-align: left; position: fixed; bottom: 40px; right: 10px; border-radius: 5px; font-size: 7px; pointer-events: none; max-height: 80px; overflow: hidden; z-index: 99999; border: 1px solid #333; display: none; }
+#bootLog.visible { display: block; }
+#logToggle { position: fixed; bottom: 12px; right: 12px; width: 36px; height: 12px; border-radius: 6px; background: linear-gradient(to bottom, #ffd700, #e09800); border: none; cursor: pointer; z-index: 100000; opacity: 0.6; transition: opacity 0.2s; padding: 0; box-shadow: none; margin: 0; }
+#logToggle:hover { opacity: 1; }
+#logToggle:active { transform: none; }
 
 /* DRAW QUESTION */
-#drawContainer { position: relative; width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; cursor: crosshair; margin-bottom: 15px; }
+#drawContainer { position: relative; width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; cursor: crosshair; margin-bottom: 15px; touch-action: none; }
 #drawContainer img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-#drawCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+#drawCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
 .draw-warning { font-family: 'Oswald', sans-serif; font-size: 22px; color: #ff3333; text-transform: uppercase; min-height: 28px; margin-bottom: 5px; }
 .draw-buttons { display: flex; gap: 10px; justify-content: center; }
 .draw-buttons button.erase-btn { background: linear-gradient(to bottom, #888, #555); color: white; box-shadow: 0 5px 0 #333; }
 .err-msg { color: #ff5555; font-weight: bold; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 3px; display:inline-block; }
+
+/* --- MOBILE RESPONSIVE --- */
+@media (max-width: 600px) {
+    body { align-items: flex-start; }
+    #app { width: 100%; padding: 10px; }
+
+    /* Typography scale-down */
+    h1 { font-size: 32px; letter-spacing: 1px; }
+    h2 { font-size: 28px; line-height: 1.3; margin-bottom: 10px; }
+    .hint { font-size: 16px; margin-bottom: 10px; min-height: 16px; }
+    .answer-text { font-size: 24px; margin: 10px 0; }
+    .ppn-display { font-size: 32px; }
+    .ppn-label { font-size: 11px; letter-spacing: 1px; }
+    .selection-display { font-size: 20px; }
+
+    /* Panels stack vertically */
+    .screen-container { min-height: auto; flex-direction: column; }
+    .left-panel { min-width: 0; padding: 20px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .right-panel { min-width: 0; padding: 20px; }
+
+    /* Center screen layout */
+    .center-screen { min-height: 50vh; gap: 16px; }
+
+    /* Buttons */
+    button { padding: 12px 20px; font-size: 16px; margin: 6px; }
+
+    /* Map & Draw containers */
+    #mapBox { height: 280px; margin-bottom: 10px; }
+    #resultMapBox { height: 200px; width: 95%; }
+    #drawContainer { height: 280px; }
+    #rulerContainer { height: 140px; }
+
+    /* Bonus grid */
+    .bonus-grid { grid-template-columns: 1fr; gap: 6px; }
+    .bonus-item { font-size: 15px; padding: 10px; }
+
+    /* Bonus result animations */
+    .bonus-anim-section { max-width: 100%; }
+    .bonus-anim-grid { grid-template-columns: 1fr; gap: 3px; }
+    .bonus-anim-item { font-size: 14px; padding: 4px 8px; white-space: normal !important; overflow: visible !important; }
+    .bonus-anim-header { font-size: 22px; margin: 8px 0 4px 0; }
+
+    /* Score boxes */
+    .score-box { padding: 10px; }
+    .score-val { font-size: 40px; }
+    .score-label { font-size: 11px; }
+    .score-box-1p { padding: 6px 14px; gap: 10px; }
+
+    /* PPN row */
+    .ppn-row { gap: 8px; margin: 6px 0; }
+
+    /* Debug */
+    .debug-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .debug-item { padding: 10px; }
+
+    /* Override inline font-sizes on instructions & bonus choice screens */
+    .center-screen h2 { font-size: 28px !important; }
+    .center-screen > div { max-width: 100%; }
+    .center-screen > div > div { font-size: clamp(16px, 5vw, 36px) !important; }
+}
 </style>
 </head>
 <body>
@@ -155,6 +221,7 @@ rect.pinch-bar:hover { fill: rgba(255,215,0,0.3) !important; }
 </div>
 
 <div id="bootLog">Browser Check...</div>
+<button id="logToggle" onclick="document.getElementById('bootLog').classList.toggle('visible')"></button>
 
 <script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" onerror="libError('D3')"></script>
 <script src="https://unpkg.com/topojson@3.0.2/dist/topojson.min.js" onerror="libError('TopoJSON')"></script>
@@ -223,26 +290,27 @@ const AudioEngine = {
         osc.frequency.value = freq;
         osc.connect(gain);
         gain.connect(this.ctx.destination);
+        gain.gain.setValueAtTime(0.25, t);
         osc.start(t);
         gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
         osc.stop(t + duration);
     },
-    // RANGEFRAME DRAG CLICK — square wave, percussive, pitch scales with PPN
+    // RANGEFRAME DRAG CLICK — soft sine tone, pitch scales with PPN
     playClick: function(ppn) {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = "square";
-        const minFreq = 500, maxFreq = 1800;
+        osc.type = "sine";
+        const minFreq = 250, maxFreq = 900;
         osc.frequency.value = minFreq + (ppn / 100) * (maxFreq - minFreq);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         const now = this.ctx.currentTime;
         gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.4, now + 0.002);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+        gain.gain.linearRampToValueAtTime(0.25, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.start(now);
-        osc.stop(now + 0.045);
+        osc.stop(now + 0.08);
     },
     playMapClick: function(count, isAdding) {
         if (!this.ctx) return;
@@ -262,7 +330,7 @@ const AudioEngine = {
         gain.connect(this.ctx.destination);
         const now = this.ctx.currentTime;
         gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.15, now + 0.015);
+        gain.gain.linearRampToValueAtTime(0.25, now + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.start(now);
         osc.stop(now + 0.08);
@@ -289,7 +357,7 @@ const AudioEngine = {
         o2.type = 'triangle'; o2.frequency.value = B4;
         o2.connect(g2); g2.connect(this.ctx.destination);
         g2.gain.setValueAtTime(0.0001, t2);
-        g2.gain.linearRampToValueAtTime(0.3, t2 + 0.005);
+        g2.gain.linearRampToValueAtTime(0.25, t2 + 0.005);
         g2.gain.exponentialRampToValueAtTime(0.0001, t2 + mainDur);
         o2.start(t2); o2.stop(t2 + mainDur);
 
@@ -309,12 +377,12 @@ const AudioEngine = {
         const osc1 = this.ctx.createOscillator(); const gain1 = this.ctx.createGain();
         osc1.type = 'sawtooth'; osc1.frequency.setValueAtTime(146.8, now); osc1.frequency.linearRampToValueAtTime(155.6, now + 0.1);
         osc1.connect(gain1); gain1.connect(this.ctx.destination);
-        osc1.start(now); gain1.gain.setValueAtTime(0.3, now); gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc1.stop(now + 0.4);
+        osc1.start(now); gain1.gain.setValueAtTime(0.25, now); gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc1.stop(now + 0.4);
         const t2 = now + 0.5;
         const osc2 = this.ctx.createOscillator(); const gain2 = this.ctx.createGain();
         osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(103.8, t2); osc2.frequency.linearRampToValueAtTime(110.0, t2 + 0.1);
         osc2.connect(gain2); gain2.connect(this.ctx.destination);
-        osc2.start(t2); gain2.gain.setValueAtTime(0.3, t2); gain2.gain.exponentialRampToValueAtTime(0.01, t2 + 0.6); osc2.stop(t2 + 0.6);
+        osc2.start(t2); gain2.gain.setValueAtTime(0.25, t2); gain2.gain.exponentialRampToValueAtTime(0.01, t2 + 0.6); osc2.stop(t2 + 0.6);
     },
     playNeutral: function() {
         if (!this.ctx) return;
@@ -336,7 +404,7 @@ const AudioEngine = {
             osc.connect(gain); gain.connect(this.ctx.destination);
             const start = now + (i * 0.08);
             gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.linearRampToValueAtTime(0.35, start + 0.01);
+            gain.gain.linearRampToValueAtTime(0.25, start + 0.01);
             gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
             osc.start(start); osc.stop(start + 0.22);
         });
@@ -375,7 +443,7 @@ const AudioEngine = {
         osc2.type = "sine"; osc2.frequency.value = upper;
         osc2.connect(g2); g2.connect(this.ctx.destination);
         const t2 = now + 0.05;
-        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.28, t2 + 0.01);
+        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.25, t2 + 0.01);
         g2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.22);
         osc2.start(t2); osc2.stop(t2 + 0.22);
     },
@@ -394,7 +462,7 @@ const AudioEngine = {
         osc2.type = "sine"; osc2.frequency.value = upper;
         osc2.connect(g2); g2.connect(this.ctx.destination);
         const t2 = now + 0.05;
-        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.28, t2 + 0.01);
+        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.25, t2 + 0.01);
         g2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.22);
         osc2.start(t2); osc2.stop(t2 + 0.22);
     },
@@ -413,7 +481,7 @@ const AudioEngine = {
         osc2.type = "sine"; osc2.frequency.value = upper;
         osc2.connect(g2); g2.connect(this.ctx.destination);
         const t2 = now + 0.05;
-        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.28, t2 + 0.01);
+        g2.gain.setValueAtTime(0.0001, t2); g2.gain.linearRampToValueAtTime(0.25, t2 + 0.01);
         g2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.22);
         osc2.start(t2); osc2.stop(t2 + 0.22);
     },
@@ -435,10 +503,38 @@ const AudioEngine = {
             osc.connect(gain); gain.connect(this.ctx.destination);
             const t = now + n.start;
             gain.gain.setValueAtTime(0.0001, t);
-            gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
+            gain.gain.linearRampToValueAtTime(0.25, t + 0.01);
             gain.gain.exponentialRampToValueAtTime(0.0001, t + n.dur);
             osc.start(t); osc.stop(t + n.dur);
         });
+    },
+    // 2P BONUS TAG — soft tinkly bell
+    playTagBell: function() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 1200;
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.25, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
+    },
+    // 2P BONUS TAG — brief bzz for incorrect
+    playTagBzz: function() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.value = 90;
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.25, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+        osc.start(now); osc.stop(now + 0.12);
     }
 };
 
@@ -452,7 +548,8 @@ const Game = {
     savedBonus: null,
     bonusPlayerData: [],
     lastMapFeatures: null,
-    correctRegionIDs: [] // NEW: Answer key
+    correctRegionIDs: [], // NEW: Answer key
+    pinchTutorialShown: new Set()
 };
 
 // --- GLOBAL ENTER-KEY SHORTCUT ---
@@ -587,6 +684,7 @@ function startGame(mode) {
     Game.index = 0;
     Game.savedBonus = null;
     Game.bonusPlayerData = [];
+    Game.pinchTutorialShown = new Set();
     showInstructions();
 }
 
@@ -652,15 +750,15 @@ function renderBonusChoice(q, container) {
     container.innerHTML = `
         <div class="center-screen">
             <div>
-                <div style="font-family:'Oswald'; font-size:18px; color:var(--gold); letter-spacing:2px; margin-bottom:10px;">BONUS ROUND CATEGORY:</div>
-                <h2 style="font-size:56px; margin:0;">${q.category || "General Knowledge"}</h2>
+                <div style="font-family:'Oswald'; font-size:36px; color:var(--gold); letter-spacing:2px; margin-bottom:10px;">BONUS ROUND CATEGORY:</div>
+                <h2 style="font-size:112px; margin:0;">${q.category || "General Knowledge"}</h2>
             </div>
             <div style="font-size:24px; max-width:600px; line-height:1.4;">
                 DO YOU WANT TO GET POINTS FOR EVERY <strong>REAL ANSWER</strong> YOU CHOOSE, OR EVERY <strong>FAKE ANSWER</strong>?
             </div>
             <div style="display:flex; gap:20px;">
-                <button onclick="renderBonusGrid('fake')">FAKE ANSWERS</button>
-                <button onclick="renderBonusGrid('real')">REAL ANSWERS</button>
+                <button onclick="renderBonusGrid('fake')">FAKE ANSWERS (6)</button>
+                <button onclick="renderBonusGrid('real')">REAL ANSWERS (8)</button>
             </div>
         </div>
     `;
@@ -695,17 +793,16 @@ function renderBonusGrid(mode) {
 
     container.innerHTML = `
         <div class="screen-container">
-            <div class="left-panel">
-                <h2>${q.question_text || ""}</h2>
-                <div class="hint">${subText}</div>
+            <div class="left-panel" style="padding-bottom:15px;">
+                <h2 style="font-size:41px;">${q.question_text || ""}</h2>
+                <div class="hint" style="font-size:16px; margin-bottom:0;">${subText}</div>
             </div>
-            <div class="right-panel">
-                <h2 style="color:var(--gold); margin:0 0 15px 0; text-align:center;">${headerText}</h2>
+            <div class="right-panel" style="padding-top:15px;">
+                <h2 style="color:var(--gold); margin:0 0 8px 0; text-align:center;">${headerText}</h2>
                 <div class="bonus-grid">
                     ${choices.map(c => `<div class="bonus-item" onclick="toggleBonus(this, ${c.id})">${c.txt}</div>`).join('')}
                 </div>
-                <div class="ppn-label">Potential Points</div>
-                <div class="ppn-display" id="bonusPpn">0</div>
+                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="bonusPpn">0</div></div>
                 <button onclick="submitBonus('${mode}')">SUBMIT ANSWER</button>
             </div>
         </div>
@@ -811,8 +908,8 @@ function showBonusResult1P(pts, choices, targetIsTruth, correctCount, incorrectC
     choices.forEach(c => {
         const wasPicked = Game.bonusSelection.has(c.id);
         const isCorrect = (targetIsTruth && c.isFact) || (!targetIsTruth && !c.isFact);
-        if (wasPicked) picked.push({ txt: c.txt, correct: isCorrect });
-        else unpicked.push({ txt: c.txt, correct: isCorrect });
+        if (wasPicked) picked.push({ txt: c.txt, correct: isCorrect, isFact: c.isFact });
+        else unpicked.push({ txt: c.txt, correct: isCorrect, isFact: c.isFact });
     });
 
     const scoreHTML = `<div class="score-box-1p"><div class="score-label">YOUR TOTAL SCORE:</div><div class="score-val">${Game.scores[0]}</div></div>`;
@@ -824,10 +921,10 @@ function showBonusResult1P(pts, choices, targetIsTruth, correctCount, incorrectC
     const pickedHTML = picked.map((c, i) => {
         const bg = c.correct ? 'rgba(90,10,158,0.85)' : 'rgba(120,120,120,0.5)';
         const textColor = c.correct ? 'var(--gold)' : 'white';
-        const mark = c.correct
-            ? `<span class="bonus-mark" style="color:#00dd44;">✓</span>`
-            : `<span class="bonus-mark-x" style="color:#ff4444;">✗</span>`;
-        return `<div class="bonus-anim-item fly-bottom" style="background:${bg}; color:${textColor}; animation-delay:${(i * stagger).toFixed(2)}s">${mark}<span>${c.txt}</span></div>`;
+        const tag = c.isFact
+            ? `<span style="color:#00dd44; font-weight:600; margin-left:6px;">(REAL)</span>`
+            : `<span style="color:#ff4444; font-weight:600; margin-left:6px;">(FAKE)</span>`;
+        return `<div class="bonus-anim-item fly-bottom" style="background:${bg}; color:${textColor}; animation-delay:${(i * stagger).toFixed(2)}s"><span>${c.txt}${tag}</span></div>`;
     }).join('');
 
     // "YOU DIDN'T PICK" header delay
@@ -835,10 +932,10 @@ function showBonusResult1P(pts, choices, targetIsTruth, correctCount, incorrectC
 
     // UNPICKED items — fly from right
     const unpickedHTML = unpicked.map((c, i) => {
-        const mark = c.correct
-            ? `<span class="bonus-mark" style="color:#00dd44;">✓</span>`
-            : `<span class="bonus-mark-x" style="color:#ff4444;">✗</span>`;
-        return `<div class="bonus-anim-item fly-right" style="background:rgba(0,0,0,0.7); color:rgba(170,170,170,0.85); animation-delay:${(didntPickDelay + i * stagger).toFixed(2)}s">${mark}<span>${c.txt}</span></div>`;
+        const tag = c.isFact
+            ? `<span style="color:#00dd44; font-weight:600; margin-left:6px;">(REAL)</span>`
+            : `<span style="color:#ff4444; font-weight:600; margin-left:6px;">(FAKE)</span>`;
+        return `<div class="bonus-anim-item fly-right" style="background:rgba(0,0,0,0.7); color:rgba(170,170,170,0.85); animation-delay:${(didntPickDelay + i * stagger).toFixed(2)}s"><span>${c.txt}${tag}</span></div>`;
     }).join('');
 
     // Finale delay — after all animations complete
@@ -863,41 +960,37 @@ function showBonusResult1P(pts, choices, targetIsTruth, correctCount, incorrectC
 // --- 2P BONUS RESULT GRID ---
 function showBonusResult2P(choices, q) {
     const players = Game.bonusPlayerData;
-    const stagger = 0.12;
 
-    // Build table rows
-    const rowsHTML = choices.map((c, i) => {
-        // Objective truth mark
-        const truthMark = c.isFact
-            ? `<span style="color:#00dd44; font-size:20px;">✓</span>`
-            : `<span style="color:#ff4444; font-family:'Oswald'; font-size:18px; font-weight:700;">✗</span>`;
+    // Separate into real and fake
+    const realAnswers = choices.filter(c => c.isFact);
+    const fakeAnswers = choices.filter(c => !c.isFact);
 
-        // Answer text color: muted white
-        const textStyle = `color: rgba(255,255,255,0.85);`;
+    // For each answer, build tag data: {playerIdx, green, label}
+    function buildTags(answer) {
+        const tags = [];
+        players.forEach((p, pi) => {
+            if (!p.picks.has(answer.id)) return;
+            const isCorrect = (p.targetIsTruth && answer.isFact) || (!p.targetIsTruth && !answer.isFact);
+            tags.push({ playerIdx: pi, green: isCorrect, label: `${pi+1}P +${isCorrect ? 25 : 0}pts` });
+        });
+        // Greens first, then reds
+        const greens = tags.filter(t => t.green);
+        const reds = tags.filter(t => !t.green);
+        return [...greens, ...reds];
+    }
 
-        // Player dots
-        const dots = players.map(p => {
-            const picked = p.picks.has(c.id);
-            if (!picked) return `<td class="cell-player"></td>`;
-            const isCorrectPick = (p.targetIsTruth && c.isFact) || (!p.targetIsTruth && !c.isFact);
-            const dotClass = isCorrectPick ? 'bonus-dot-correct' : 'bonus-dot-wrong';
-            return `<td class="cell-player"><span class="bonus-dot ${dotClass}"></span></td>`;
-        }).join('');
+    // Build answer bar HTML
+    function answerBarHTML(answer, idx, prefix, deferred) {
+        const id = `${prefix}_${idx}`;
+        const animClass = deferred ? '' : 'fly-bottom';
+        return `<div id="${id}" class="bonus-anim-item ${animClass}" style="background:rgba(90,10,158,0.85); color:white; animation-delay:${(idx * 0.15).toFixed(2)}s; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>${answer.txt}</span>
+            <span id="${id}_tags" style="display:inline-flex; gap:8px; flex-wrap:wrap;"></span>
+        </div>`;
+    }
 
-        return `<tr class="bonus-grid-row fly-bottom" style="animation-delay:${(i * stagger).toFixed(2)}s;">
-            <td class="cell-mark">${truthMark}</td>
-            <td class="cell-answer" style="${textStyle}">${c.txt}</td>
-            ${dots}
-        </tr>`;
-    }).join('');
-
-    // Player column headers
-    const playerHeaders = players.map((p, i) => `<th>${i + 1}P</th>`).join('');
-
-    // Strategy labels
-    const stratLabels = players.map((p, i) =>
-        `<span style="font-size:13px; opacity:0.6;">${i + 1}P: ${p.targetIsTruth ? 'REAL' : 'FAKE'}</span>`
-    ).join('&nbsp;&nbsp;|&nbsp;&nbsp;');
+    const realBarsHTML = realAnswers.map((c, i) => answerBarHTML(c, i, 'real', false)).join('');
+    const fakeBarsHTML = fakeAnswers.map((c, i) => answerBarHTML(c, i, 'fake', true)).join('');
 
     // Winner text
     const p1 = Game.scores[0], p2 = Game.scores[1];
@@ -905,48 +998,87 @@ function showBonusResult2P(choices, q) {
     if (p1 > p2) winnerText = "PLAYER 1 WINS!";
     else if (p2 > p1) winnerText = "PLAYER 2 WINS!";
 
-    // Score summary
     const scoreHTML = `<div style="display:flex; gap:20px; width:100%;">
         <div class="score-box"><div class="score-label">PLAYER 1'S SCORE:</div><div class="score-val">${p1}</div></div>
         <div class="score-box"><div class="score-label">PLAYER 2'S SCORE:</div><div class="score-val">${p2}</div></div>
     </div>`;
 
-    const finaleDelay = choices.length * stagger + 0.5;
-
     document.getElementById("app").innerHTML = `
-        <div style="text-align:center; margin-bottom:6px;">
-            <div style="font-family:'Oswald'; font-size:14px; letter-spacing:2px; opacity:0.5; margin-bottom:4px;">STRATEGIES CHOSEN</div>
-            <div>${stratLabels}</div>
+        <div class="bonus-anim-section">
+            <div class="bonus-anim-header" style="animation-delay:0s;">REAL ANSWERS:</div>
+            <div class="bonus-anim-grid" id="realGrid">${realBarsHTML}</div>
+            <div class="bonus-anim-header" id="fakeHeader" style="opacity:0;">FAKE ANSWERS:</div>
+            <div class="bonus-anim-grid" id="fakeGrid" style="opacity:0;">${fakeBarsHTML}</div>
         </div>
-        <table class="bonus-grid-table">
-            <thead><tr>
-                <th></th>
-                <th class="col-answer">ANSWER</th>
-                ${playerHeaders}
-            </tr></thead>
-            <tbody>${rowsHTML}</tbody>
-        </table>
-        <div id="winnerAnnounce" style="display:none; text-align:center; margin:20px 0 5px 0;">
+        <div id="twoPlayerFinale" style="display:none; text-align:center;">
             <h1 style="font-size:52px; color:var(--gold); animation: flashOnOff 1s linear infinite;">${winnerText}</h1>
-        </div>
-        <div id="finalScores" style="display:none; text-align:center;">
             <div style="width:90%; margin:15px auto;">${scoreHTML}</div>
             <button onclick="location.reload()">PLAY AGAIN</button>
         </div>
     `;
 
-    // After answer animation completes: show winner text + play sound
-    setTimeout(function() {
-        const el = document.getElementById("winnerAnnounce");
-        if (el) el.style.display = "block";
-        AudioEngine.playBonusWin();
+    // --- ANIMATION SEQUENCER ---
+    // Animate tags for a list of answers, then call onDone
+    function animateTags(answers, prefix, startDelay, onDone) {
+        let delay = startDelay;
+        const tagGroups = answers.map((c, i) => ({ idx: i, tags: buildTags(c) })).filter(g => g.tags.length > 0);
 
-        // After winner text is visible, show scores + button
+        tagGroups.forEach((group, gi) => {
+            group.tags.forEach((tag, ti) => {
+                setTimeout(() => {
+                    const container = document.getElementById(`${prefix}_${group.idx}_tags`);
+                    if (!container) return;
+                    const color = tag.green ? '#00dd44' : '#ff4444';
+                    const span = document.createElement('span');
+                    span.style.cssText = `color:${color}; font-family:'Oswald',sans-serif; font-size:14px; font-weight:600; white-space:nowrap;`;
+                    span.textContent = tag.label;
+                    container.appendChild(span);
+                    if (tag.green) AudioEngine.playTagBell();
+                    else AudioEngine.playTagBzz();
+                }, delay * 1000);
+                delay += 0.2;
+            });
+            // 0.3s gap after this line completes (unless it's the last group)
+            if (gi < tagGroups.length - 1) delay += 0.3;
+        });
+
+        // Call onDone after all tags + buffer
+        if (tagGroups.length > 0) delay += 0.2;
+        setTimeout(onDone, delay * 1000);
+    }
+
+    // Phase timing
+    const realFlyDuration = realAnswers.length * 0.15 + 0.4;
+
+    // Phase 1: After real answers fly in, animate real tags
+    animateTags(realAnswers, 'real', realFlyDuration, function() {
+        // Wait 0.2s, show FAKE ANSWERS header + grid
         setTimeout(function() {
-            const scores = document.getElementById("finalScores");
-            if (scores) scores.style.display = "block";
-        }, 1200);
-    }, finaleDelay * 1000);
+            const fakeHeader = document.getElementById('fakeHeader');
+            const fakeGrid = document.getElementById('fakeGrid');
+            if (fakeHeader) { fakeHeader.style.opacity = '1'; fakeHeader.style.animation = 'fadeIn 0.3s forwards'; }
+            if (fakeGrid) {
+                fakeGrid.style.opacity = '1';
+                // Trigger fly animations on fake bars now
+                fakeGrid.querySelectorAll('.bonus-anim-item').forEach((el, i) => {
+                    el.style.animationDelay = (i * 0.15).toFixed(2) + 's';
+                    el.classList.add('fly-bottom');
+                });
+            }
+
+            const fakeFlyDuration = fakeAnswers.length * 0.15 + 0.4;
+
+            // Phase 2: After fake answers fly in, animate fake tags
+            animateTags(fakeAnswers, 'fake', fakeFlyDuration, function() {
+                // Phase 3: Wait 0.2s, show finale
+                setTimeout(function() {
+                    const finale = document.getElementById('twoPlayerFinale');
+                    if (finale) finale.style.display = 'block';
+                    AudioEngine.playBonusWin();
+                }, 200);
+            });
+        }, 200);
+    });
 }
 
 // --- RENDERER: PINCH ---
@@ -976,8 +1108,7 @@ function renderPinch(q, container) {
             <div class="right-panel">
                 <div class="selection-display" id="selectionDisp">SELECTED: 0</div>
                 <div id="rulerContainer"></div>
-                <div class="ppn-label">Potential Points</div>
-                <div class="ppn-display" id="ppnDisplay">0</div>
+                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="ppnDisplay">0</div></div>
                 <button onclick="Game.submitPinch()">SUBMIT ANSWER</button>
             </div>
         </div>
@@ -1028,14 +1159,82 @@ function renderPinch(q, container) {
     }
     update();
 
+    // --- PINCH TUTORIAL: Pulsing edge indicators on first pinch per player ---
+    let tutorialActive = false;
+    let edgeLeft = null, edgeRight = null;
+
+    function addPulsingEdges() {
+        const barX = +bar.attr("x"), barW = +bar.attr("width");
+        edgeLeft = svg.append("rect")
+            .attr("x", barX - 6).attr("y", 20).attr("width", 14).attr("height", 70)
+            .attr("rx", 7).style("fill", "#ffd700").style("pointer-events", "none")
+            .style("animation", "edgePulse 0.6s ease-in-out infinite");
+        edgeRight = svg.append("rect")
+            .attr("x", barX + barW - 8).attr("y", 20).attr("width", 14).attr("height", 70)
+            .attr("rx", 7).style("fill", "#ffd700").style("pointer-events", "none")
+            .style("animation", "edgePulse 0.6s ease-in-out infinite");
+        tutorialActive = true;
+    }
+
+    function removePulsingEdges() {
+        if (edgeLeft) { edgeLeft.remove(); edgeLeft = null; }
+        if (edgeRight) { edgeRight.remove(); edgeRight = null; }
+        tutorialActive = false;
+    }
+
+    // Show on first pinch for each player this cycle
+    if (!Game.pinchTutorialShown.has(Game.player)) {
+        Game.pinchTutorialShown.add(Game.player);
+        addPulsingEdges();
+    }
+
     let dragMode = null, startX, startL, startR;
-    bar.on("mousedown", e => {
-        const mx = d3.pointer(e)[0];
+    
+    function startDrag(mx) {
+        if (tutorialActive) removePulsingEdges();
         const visualL = (x(r)-x(l) < 15) ? x(l)-7.5 : x(l); const visualW = (x(r)-x(l) < 15) ? 15 : x(r)-x(l);
         const edgeZone = Math.min(20, visualW / 3); 
         if(mx < visualL + edgeZone) dragMode = 'left'; else if(mx > visualL + visualW - edgeZone) dragMode = 'right'; else dragMode = 'move';
-        startX = mx; startL = l; startR = r; lastSoundVal = dragMode === 'right' ? r : l; 
+        startX = mx; startL = l; startR = r; lastSoundVal = dragMode === 'right' ? r : l;
+    }
+
+    bar.on("mousedown", e => {
+        startDrag(d3.pointer(e)[0]);
         d3.select(window).on("mousemove", onDrag).on("mouseup", stopDrag);
+    });
+
+    // TOUCH SUPPORT FOR PINCH BAR
+    bar.node().addEventListener("touchstart", function(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const pt = d3.pointer(touch, svg.node());
+        startDrag(pt[0]);
+    }, { passive: false });
+
+    svg.node().addEventListener("touchmove", function(e) {
+        if (!dragMode) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const currX = d3.pointer(touch, svg.node())[0];
+        const deltaVal = (currX - startX) * ((max - min) / (width-40));
+        if(dragMode === 'move') {
+            let dl = startL + deltaVal, dr = startR + deltaVal;
+            if(dl < min) { dl=min; dr=min+(startR-startL); } if(dr > max) { dr=max; dl=max-(startR-startL); }
+            l = Math.round(dl/snap)*snap; r = Math.round(dr/snap)*snap;
+        } else if(dragMode === 'left') {
+            let newL = Math.round((startL+deltaVal)/snap)*snap; newL = Math.max(min, Math.min(r, newL));
+            if (maxSpan > 0 && (r - newL) > maxSpan) newL = r - maxSpan; l = newL;
+        } else if(dragMode === 'right') {
+            let newR = Math.round((startR+deltaVal)/snap)*snap; newR = Math.min(max, Math.max(l, newR));
+            if (maxSpan > 0 && (newR - l) > maxSpan) newR = l + maxSpan; r = newR;
+        }
+        const currentPpn = update();
+        const checkVal = dragMode === 'right' ? r : l;
+        if(Math.abs(checkVal - lastSoundVal) >= snap) { AudioEngine.playClick(currentPpn); lastSoundVal = checkVal; }
+    }, { passive: false });
+
+    svg.node().addEventListener("touchend", function(e) {
+        dragMode = null;
     });
 
     function onDrag(e) {
@@ -1074,8 +1273,7 @@ function renderMap(q, container) {
             </div>
             <div class="right-panel">
                 <div id="mapBox">Loading Map...</div>
-                <div class="ppn-label">Potential Points</div>
-                <div class="ppn-display" id="mapPpn">0</div>
+                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="mapPpn">0</div></div>
                 <button onclick="Game.submitMap()">SUBMIT ANSWER</button>
             </div>
         </div>
@@ -1182,13 +1380,13 @@ function renderMap(q, container) {
 
     let url, projectionType;
     if (q.geo_source === 'us_states') { url = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"; projectionType = 'albers'; }
-    else if (q.geo_source === 'world_countries') { url = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"; projectionType = 'natural'; }
+    else if (q.geo_source === 'world_countries') { url = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-10m.json"; projectionType = 'natural'; }
     else if (q.geo_source === 'nyc_boroughs') { url = "https://raw.githubusercontent.com/dwillis/nyc-maps/master/boroughs.geojson"; projectionType = 'mercator'; }
 
     Game.lastMapProj = projectionType;
     d3.json(url).then(data => {
         let features;
-        if(q.geo_source === 'nyc_boroughs') { features = data.features; features.forEach(f => { let name = f.properties.BoroName || f.properties.name; if(name === "Bronx") name = "The Bronx"; f.properties.name = name; }); } 
+        if(q.geo_source === 'nyc_boroughs') { features = data.features; features.forEach(f => { let name = f.properties.BoroName || f.properties.name; if(name === "Bronx") name = "The Bronx"; f.properties.name = name; }); }
         else { const key = Object.keys(data.objects).find(k => k.match(/state|countr/)) || Object.keys(data.objects)[0]; features = topojson.feature(data, data.objects[key]).features; }
         if(q.visible_ids) { const whitelist = q.visible_ids.split(",").map(s => s.trim()); features = features.filter(f => whitelist.includes(f.properties.name)); }
         Game.lastMapFeatures = features; 
@@ -1230,8 +1428,7 @@ function renderDraw(q, container) {
                     <img id="drawImg" src="${q.image_file}" alt="Question Image">
                     <canvas id="drawCanvas"></canvas>
                 </div>
-                <div class="ppn-label">Potential Points</div>
-                <div class="ppn-display" id="drawPpn">100</div>
+                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="drawPpn">100</div></div>
                 <div class="draw-buttons">
                     <button class="erase-btn" onclick="Game.eraseDraw()">ERASE</button>
                     <button id="drawSubmitBtn" onclick="Game.submitDraw()" disabled>SUBMIT ANSWER</button>
@@ -1281,7 +1478,7 @@ function renderDraw(q, container) {
 
         ctx.fillStyle = "rgba(255,215,0,0.25)";
         ctx.strokeStyle = "#ffd700";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 4;
         if (shapeComplete) ctx.fill();
         ctx.stroke();
     }
@@ -1343,6 +1540,55 @@ function renderDraw(q, container) {
     });
 
     canvasEl.addEventListener("mouseup", function(e) {
+        if (!isDrawing) return;
+        isDrawing = false;
+        if (points.length >= 3) {
+            shapeComplete = true;
+            drawShape();
+            updatePPN();
+            AudioEngine.playClick(50);
+        }
+    });
+
+    // TOUCH SUPPORT FOR DRAW CANVAS
+    function getTouchPos(e) {
+        const touch = e.touches[0];
+        const rect = canvasEl.getBoundingClientRect();
+        return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    }
+
+    canvasEl.addEventListener("touchstart", function(e) {
+        if (shapeComplete) return;
+        e.preventDefault();
+        isDrawing = true;
+        drawSoundDist = 0;
+        totalLineLength = 0;
+        points = [getTouchPos(e)];
+        drawShape();
+    }, { passive: false });
+
+    canvasEl.addEventListener("touchmove", function(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const pos = getTouchPos(e);
+        const prev = points[points.length - 1];
+        const segLen = Math.hypot(pos.x - prev.x, pos.y - prev.y);
+        totalLineLength += segLen;
+        drawSoundDist += segLen;
+
+        points.push(pos);
+        drawShape();
+        if (points.length >= 3) {
+            const ppn = calcPPN();
+            document.getElementById("drawPpn").innerText = ppn;
+            if (drawSoundDist >= drawSoundInterval) {
+                drawSoundDist = 0;
+                AudioEngine.playDrawTone(ppn);
+            }
+        }
+    }, { passive: false });
+
+    canvasEl.addEventListener("touchend", function(e) {
         if (!isDrawing) return;
         isDrawing = false;
         if (points.length >= 3) {
