@@ -1380,7 +1380,7 @@ function renderMap(q, container) {
 
     let url, projectionType;
     if (q.geo_source === 'us_states') { url = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"; projectionType = 'albers'; }
-    else if (q.geo_source === 'world_countries') { url = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-10m.json"; projectionType = 'natural'; }
+    else if (q.geo_source === 'world_countries') { url = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"; projectionType = 'natural'; }
     else if (q.geo_source === 'nyc_boroughs') { url = "https://raw.githubusercontent.com/dwillis/nyc-maps/master/boroughs.geojson"; projectionType = 'mercator'; }
 
     Game.lastMapProj = projectionType;
