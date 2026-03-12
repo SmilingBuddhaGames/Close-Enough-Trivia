@@ -1380,7 +1380,7 @@ function renderMap(q, container) {
 
     let url, projectionType;
     if (q.geo_source === 'us_states') { url = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"; projectionType = 'albers'; }
-    else if (q.geo_source === 'world_countries') { url = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-10m.json"; projectionType = 'natural'; }
+    else if (q.geo_source === 'world_countries') { url = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-10m.json"; projectionType = q.visible_ids ? 'mercator' : 'natural'; }
     else if (q.geo_source === 'nyc_boroughs') { url = "https://raw.githubusercontent.com/dwillis/nyc-maps/master/boroughs.geojson"; projectionType = 'mercator'; }
     // Allow spreadsheet projection column to override the default
     if (q.projection) {
@@ -1389,16 +1389,13 @@ function renderMap(q, container) {
         else if (p === 'albersusa' || p === 'albers') projectionType = 'albers';
         else if (p === 'naturalearth' || p === 'natural') projectionType = 'natural';
     }
-    // Force mercator for regional world subsets — naturalEarth wastes space on small clusters
-    if (q.geo_source === 'world_countries' && q.visible_ids) { projectionType = 'mercator'; }
-    log(`MAP proj: ${projectionType} (geo=${q.geo_source}, spreadsheet=${q.projection||'none'}, hasFilter=${!!q.visible_ids})`);
 
     Game.lastMapProj = projectionType;
     d3.json(url).then(data => {
         let features;
         if(q.geo_source === 'nyc_boroughs') { features = data.features; features.forEach(f => { let name = f.properties.BoroName || f.properties.name; if(name === "Bronx") name = "The Bronx"; f.properties.name = name; }); }
         else { const key = Object.keys(data.objects).find(k => k.match(/state|countr/)) || Object.keys(data.objects)[0]; features = topojson.feature(data, data.objects[key]).features; }
-        if(q.visible_ids) { const whitelist = q.visible_ids.split(",").map(s => s.trim()); const before = features.length; features = features.filter(f => whitelist.includes(f.properties.name)); log(`MAP filter: ${features.length}/${whitelist.length} matched (from ${before} total features). Names: ${features.map(f=>f.properties.name).join(', ')}`); const missed = whitelist.filter(n => !features.find(f => f.properties.name === n)); if(missed.length) log(`MAP MISSING: ${missed.join(', ')}`); }
+        if(q.visible_ids) { const whitelist = q.visible_ids.split(",").map(s => s.trim()); features = features.filter(f => whitelist.includes(f.properties.name)); }
         Game.lastMapFeatures = features; 
         const width = 600, height = 400;
         const svg = d3.select("#mapBox").html("").append("svg").attr("viewBox", `0 0 ${width} ${height}`).style("width", "100%").style("height", "100%");
