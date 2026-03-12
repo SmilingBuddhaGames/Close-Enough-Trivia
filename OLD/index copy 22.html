@@ -632,30 +632,12 @@ window.onload = async function() {
     }
 
     const shuffle = arr => arr.sort(() => Math.random() - 0.5);
-    if(map) shuffle(map); if(bonus) shuffle(bonus); if(draw) shuffle(draw);
-
-    // Split pinch into normal and seasoning pools
-    let pinchNormal = [], pinchSeasoning = [];
-    if(pinch) {
-        pinch.forEach(q => {
-            if((q.role || '').trim().toLowerCase() === 'seasoning') pinchSeasoning.push(q);
-            else pinchNormal.push(q);
-        });
-        shuffle(pinchNormal); shuffle(pinchSeasoning);
-        log(`Pinch deck: ${pinchNormal.length} normal, ${pinchSeasoning.length} seasoning`);
-    }
-    // Pinch slots 1 & 2 from normal pool, slot 3 from combined leftover normal + seasoning pool
-    const p1 = pinchNormal[0] || null;
-    const p2 = pinchNormal[1] || null;
-    const slot3Pool = [...pinchNormal.slice(2), ...pinchSeasoning];
-    shuffle(slot3Pool);
-    const p3 = slot3Pool[0] || null;
-    if(p3) log(`Slot 3 pick: ${p3.id} (${(p3.role||'').trim().toLowerCase() === 'seasoning' ? 'SEASONING' : 'normal'}) from pool of ${slot3Pool.length}`);
+    if(pinch) shuffle(pinch); if(map) shuffle(map); if(bonus) shuffle(bonus); if(draw) shuffle(draw);
 
     Game.deck = [
-        p1, (map && map[0]), 
-        p2, (draw && draw[0]), 
-        p3, (bonus && bonus[0])
+        (pinch && pinch[0]), (map && map[0]), 
+        (pinch && pinch[1]), (draw && draw[0]), 
+        (pinch && pinch[2]), (bonus && bonus[0])
     ].filter(Boolean);
 
     log("Deck Ready. Launching UI.");
