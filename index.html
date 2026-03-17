@@ -51,7 +51,7 @@ button:disabled { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; }
 .right-panel { flex: 1; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 350px; background: rgba(0,0,0,0.1); }
 
 /* MODULES */
-#mapBox, #resultMapBox { width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 20px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+#mapBox, #resultMapBox { width: 100%; height: 400px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 20px; position: relative; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
 #resultMapBox { height: 300px; width: 80%; margin: 10px auto; } 
 #rulerContainer { width: 100%; height: 180px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; position: relative; touch-action: none; }
 
@@ -1331,19 +1331,25 @@ function renderMap(q, container) {
     // --- CUSTOM IMAGE LOGIC ---
     if (q.geo_source === 'custom_image') {
         const width = 600, height = 400;
-        const svg = d3.select("#mapBox").html("").append("svg")
+        const mapBox = d3.select("#mapBox").html("");
+        
+        // Use a regular HTML <img> for the background (iOS Safari
+        // doesn't reliably render <image> inside inline SVGs).
+        mapBox.append("img")
+            .attr("src", q.image_file)
+            .style("position", "absolute").style("top", "0").style("left", "0")
+            .style("width", "100%").style("height", "100%")
+            .style("object-fit", "contain").style("pointer-events", "none");
+
+        const svg = mapBox.append("svg")
             .attr("width", "100%").attr("height", "100%")
-            .attr("viewBox", `0 0 ${width} ${height}`); 
+            .attr("viewBox", `0 0 ${width} ${height}`)
+            .style("position", "absolute").style("top", "0").style("left", "0"); 
 
         d3.xml(q.svg_file).then(xml => {
             const importedNode = document.importNode(xml.documentElement, true);
             const vBox = d3.select(importedNode).attr("viewBox") || `0 0 ${width} ${height}`;
             svg.attr("viewBox", vBox);
-
-            svg.append("image")
-                .attr("href", q.image_file)
-                .attr("xlink:href", q.image_file)
-                .attr("width", "100%").attr("height", "100%");
 
             const mapLayer = svg.append("g").attr("class", "map-layer");
             Array.from(importedNode.children).forEach(child => {
@@ -1846,19 +1852,25 @@ function showResult(pts, ansText, q, isBonus, customHeader) {
 
     if (q && q.type === 'map') {
         const width = 600, height = 400;
-        const svg = d3.select("#resultMapBox").append("svg").attr("viewBox", `0 0 ${width} ${height}`).style("width", "100%").style("height", "100%");
         
         // Custom Image Result
         if (q.geo_source === 'custom_image') {
+            const resultBox = d3.select("#resultMapBox");
+
+            // Use a regular HTML <img> for the background (iOS Safari fix)
+            resultBox.append("img")
+                .attr("src", q.image_file)
+                .style("position", "absolute").style("top", "0").style("left", "0")
+                .style("width", "100%").style("height", "100%")
+                .style("object-fit", "contain").style("pointer-events", "none");
+
+            const svg = resultBox.append("svg").attr("viewBox", `0 0 ${width} ${height}`).style("width", "100%").style("height", "100%")
+                .style("position", "absolute").style("top", "0").style("left", "0");
+
              d3.xml(q.svg_file).then(xml => {
                 const importedNode = document.importNode(xml.documentElement, true);
                 const vBox = d3.select(importedNode).attr("viewBox") || `0 0 ${width} ${height}`;
                 svg.attr("viewBox", vBox);
-                
-                svg.append("image")
-                    .attr("href", q.image_file)
-                    .attr("xlink:href", q.image_file)
-                    .attr("width", "100%").attr("height", "100%");
                 
                 const mapLayer = svg.append("g");
                 Array.from(importedNode.children).forEach(child => mapLayer.node().appendChild(child));
@@ -1880,6 +1892,7 @@ function showResult(pts, ansText, q, isBonus, customHeader) {
              });
         } else {
             // Standard GeoJSON Result
+            const svg = d3.select("#resultMapBox").append("svg").attr("viewBox", `0 0 ${width} ${height}`).style("width", "100%").style("height", "100%");
             const features = Game.lastMapFeatures;
             let proj;
             if(Game.lastMapProj === 'albers') proj = d3.geoAlbersUsa().fitSize([width, height], {type:"FeatureCollection", features});
