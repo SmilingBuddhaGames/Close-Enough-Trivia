@@ -1342,6 +1342,7 @@ function renderMap(q, container) {
 
             svg.append("image")
                 .attr("href", q.image_file)
+                .attr("xlink:href", q.image_file)
                 .attr("width", "100%").attr("height", "100%");
 
             const mapLayer = svg.append("g").attr("class", "map-layer");
@@ -1856,6 +1857,7 @@ function showResult(pts, ansText, q, isBonus, customHeader) {
                 
                 svg.append("image")
                     .attr("href", q.image_file)
+                    .attr("xlink:href", q.image_file)
                     .attr("width", "100%").attr("height", "100%");
                 
                 const mapLayer = svg.append("g");
