@@ -150,19 +150,6 @@ rect.pinch-bar:hover { fill: rgba(255,215,0,0.3) !important; }
 .timer-display.timer-warn { color: #ff3333; animation: timerPulse 1s ease-in-out infinite; }
 @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
-/* FINAL ROUND */
-.final-clue-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; padding: 20px; margin-bottom: 15px; min-height: 80px; display: flex; align-items: center; justify-content: center; }
-.final-clue-label { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5; margin-bottom: 6px; }
-.final-clue-text { font-family: 'Barlow', sans-serif; font-size: 22px; line-height: 1.4; font-style: italic; }
-.final-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-bottom: 15px; }
-.final-item { background: rgba(255,255,255,0.1); padding: 12px 15px; border-radius: 6px; cursor: pointer; transition: background 0.2s; font-size: 16px; text-align: left; }
-.final-item:hover { background: rgba(255,255,255,0.2); }
-.final-item.active { background: #ffd700; color: black; font-weight: bold; }
-.final-countdown { font-family: 'Oswald', sans-serif; font-size: 80px; color: #ff3333; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9998; pointer-events: none; text-shadow: 0 0 40px rgba(255,0,0,0.6); opacity: 0; }
-.final-countdown.visible { opacity: 1; animation: timerPulse 1s ease-in-out infinite; }
-@keyframes clueFlash { 0% { color: var(--gold); font-size: 1.4em; } 100% { color: white; font-size: 1em; } }
-.final-clue-text.clue-change { animation: clueFlash 0.6s ease-out forwards; }
-
 /* --- MOBILE RESPONSIVE --- */
 @media (max-width: 600px) {
     body { align-items: flex-start; }
@@ -224,13 +211,6 @@ rect.pinch-bar:hover { fill: rgba(255,215,0,0.3) !important; }
 
     /* Timer */
     .timer-display { font-size: 28px; }
-
-    /* Final round */
-    .final-clue-box { padding: 12px; min-height: 60px; }
-    .final-clue-text { font-size: 17px; }
-    .final-grid { grid-template-columns: 1fr; gap: 6px; }
-    .final-item { font-size: 14px; padding: 10px; }
-    .final-countdown { font-size: 60px; }
 }
 </style>
 </head>
@@ -579,26 +559,6 @@ const AudioEngine = {
         gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
         osc.start(now); osc.stop(now + 0.1);
     },
-    // CLUE CHANGE CHIME — bright descending two-note chime
-    playClueChime: function() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const o1 = this.ctx.createOscillator(); const g1 = this.ctx.createGain();
-        o1.type = 'sine'; o1.frequency.value = 1047; // C6
-        o1.connect(g1); g1.connect(this.ctx.destination);
-        g1.gain.setValueAtTime(0.0001, now);
-        g1.gain.linearRampToValueAtTime(0.2, now + 0.01);
-        g1.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
-        o1.start(now); o1.stop(now + 0.15);
-        const o2 = this.ctx.createOscillator(); const g2 = this.ctx.createGain();
-        o2.type = 'sine'; o2.frequency.value = 784; // G5
-        o2.connect(g2); g2.connect(this.ctx.destination);
-        const t2 = now + 0.1;
-        g2.gain.setValueAtTime(0.0001, t2);
-        g2.gain.linearRampToValueAtTime(0.2, t2 + 0.01);
-        g2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.2);
-        o2.start(t2); o2.stop(t2 + 0.2);
-    },
     // TIMER EXPIRED BUZZER — harsh low buzz
     playBuzzer: function() {
         if (!this.ctx) return;
@@ -632,11 +592,7 @@ const Game = {
     currentMultiplier: 1, // PPN multiplier for current round
     splashCallback: null, // Enter-key callback for splash screens
     activeTimer: null,    // setInterval ID for question timer
-    timedOut: false,      // Flag: did current question time out?
-    bonusFanfarePlayed: false,  // Flag: has 2P bonus fanfare been shown?
-    finalFanfarePlayed: false,  // Flag: has 2P final fanfare been shown?
-    finalPlayerData: [],        // 2P final round player results
-    finalSavedChoices: null     // 2P final round preserved choice order
+    timedOut: false       // Flag: did current question time out?
 };
 
 // --- 1P ROUND STRUCTURE ---
@@ -690,13 +646,8 @@ function updateTimerDisplay(elId, seconds) {
 // --- GLOBAL ENTER-KEY SHORTCUT ---
 // If exactly one button is visible on the current screen, Enter clicks it.
 // Multi-button screens (title, bonus choice, etc.) are naturally excluded.
-// Cooldown prevents chain-firing across rapid screen transitions.
-let enterCooldown = false;
 document.addEventListener("keydown", function(e) {
     if (e.key !== "Enter") return;
-    if (enterCooldown) return;
-    enterCooldown = true;
-    setTimeout(function() { enterCooldown = false; }, 400);
     // Splash screen skip (Enter advances immediately)
     if (Game.splashCallback) {
         e.preventDefault();
@@ -855,31 +806,23 @@ function buildDeck() {
         log(`1P Deck built: ${Game.deck.length} rounds — ${Game.roundDefs.map(r => r.name).join(', ')}`);
 
     } else {
-        // --- 2P DECK: Same 8-round structure as 1P ---
-        const p1 = pinchNormal[0] || null; // THE 100 ROUND
-        const p2 = pinchNormal[1] || null; // THE 300 ROUND
-        const p3 = pinchNormal[2] || null; // THE 500 ROUND
+        // --- 2P DECK: Original 6-round structure (unchanged) ---
+        // Pinch slots 1 & 2 from normal pool, slot 3 from combined leftover normal + seasoning pool
+        const p1 = pinchNormal[0] || null;
+        const p2 = pinchNormal[1] || null;
+        const slot3Pool = [...pinchNormal.slice(2), ...pinchSeasoning];
+        shuffle(slot3Pool);
+        const p3 = slot3Pool[0] || null;
+        if(p3) log(`Slot 3 pick: ${p3.id} (${(p3.role||'').trim().toLowerCase() === 'seasoning' ? 'SEASONING' : 'normal'}) from pool of ${slot3Pool.length}`);
 
-        // Pinch slot 7 (THE 1000 ROUND): seasoning-eligible
-        const slot7Pool = [...pinchNormal.slice(3), ...pinchSeasoning];
-        shuffle(slot7Pool);
-        const p4 = slot7Pool[0] || null;
-        if(p4) log(`2P 1000 Round pick: ${p4.id} (${(p4.role||'').trim().toLowerCase() === 'seasoning' ? 'SEASONING' : 'normal'}) from pool of ${slot7Pool.length}`);
+        Game.deck = [
+            p1, (map[0] || null),
+            p2, (draw[0] || null),
+            p3, (bonus[0] || null)
+        ].filter(Boolean);
 
-        const deckPairs = [
-            { q: p1,              round: ROUNDS_1P[0] },  // THE 100 ROUND (pinch)
-            { q: map[0] || null,  round: ROUNDS_1P[1] },  // THE 200 ROUND (map)
-            { q: p2,              round: ROUNDS_1P[2] },  // THE 300 ROUND (pinch)
-            { q: draw[0] || null, round: ROUNDS_1P[3] },  // THE 400 ROUND (draw)
-            { q: p3,              round: ROUNDS_1P[4] },  // THE 500 ROUND (pinch)
-            { q: bonus[0] || null,round: ROUNDS_1P[5] },  // BONUS ROUND
-            { q: p4,              round: ROUNDS_1P[6] },  // THE 1000 ROUND (pinch)
-            { q: final_qs[0] || null, round: ROUNDS_1P[7] }  // FINAL ROUND
-        ].filter(pair => pair.q != null);
-
-        Game.deck = deckPairs.map(p => p.q);
-        Game.roundDefs = deckPairs.map(p => p.round);
-        log(`2P Deck built: ${Game.deck.length} rounds — ${Game.roundDefs.map(r => r.name).join(', ')}`);
+        // 2P has no round definitions — multiplier stays 1
+        Game.roundDefs = [];
     }
 
     // Record what we picked so next cycle avoids repeats
@@ -934,10 +877,6 @@ function startGame(mode) {
     Game.currentMultiplier = 1;
     Game.splashCallback = null;
     Game.roundDefs = [];
-    Game.bonusFanfarePlayed = false;
-    Game.finalFanfarePlayed = false;
-    Game.finalPlayerData = [];
-    Game.finalSavedChoices = null;
     buildDeck(); // Rebuild deck now that mode is set
     showInstructions();
 }
@@ -961,7 +900,7 @@ function showInstructions() {
 
 function beginGame() { AudioEngine.playArpeggio(440 * Math.pow(2, 2/12)); nextTurn(); }
 
-// --- ROUND SPLASH SCREEN ---
+// --- ROUND SPLASH SCREEN (1P only) ---
 function showRoundSplash(roundDef, callback) {
     let advanced = false;
     let timer = null;
@@ -984,32 +923,19 @@ function showRoundSplash(roundDef, callback) {
 function nextTurn() {
     if (Game.index >= Game.deck.length) { showGameOver(); return; }
 
-    // Set the current round multiplier (both modes)
-    if (Game.roundDefs[Game.index]) {
+    // Set the current round multiplier
+    if (Game.mode === 1 && Game.roundDefs[Game.index]) {
         Game.currentMultiplier = Game.roundDefs[Game.index].multiplier;
     } else {
         Game.currentMultiplier = 1;
     }
 
-    // Bonus and Final have their own fanfare intros, so skip the round splash
-    const roundDef = Game.roundDefs[Game.index];
-    const q = Game.deck[Game.index];
-    const hasFanfare = (q.type === 'bonus' || q.type === 'final');
-
     if (Game.mode === 2) {
-        // 2P: Bonus/Final have fanfare intros — show those first for P1
-        if (hasFanfare && Game.player === 0) {
-            renderQuestion(); // fanfare intro handles the ready screen
-        } else if (roundDef && !hasFanfare && Game.player === 0) {
-            showRoundSplash(roundDef, function() {
-                showReadyScreen();
-            });
-        } else {
-            showReadyScreen();
-        }
+        showReadyScreen();
     } else {
         // 1P: Show round splash, then render question
-        if (roundDef && !hasFanfare) {
+        const roundDef = Game.roundDefs[Game.index];
+        if (roundDef) {
             showRoundSplash(roundDef, function() {
                 renderQuestion();
             });
@@ -1037,400 +963,70 @@ function renderQuestion() {
     else if(q.type === 'map') renderMap(q, app);
     else if(q.type === 'bonus') renderBonusIntro(q, app);
     else if(q.type === 'draw') renderDraw(q, app);
-    else if(q.type === 'final') renderFinalIntro(q, app);
+    else if(q.type === 'final') renderFinalPlaceholder(q, app);
 }
 
-// --- FINAL ROUND: "CLUE-SE ENOUGH!" ---
-
-// PPN lookup table: [cluePhase][numAnswers] (1-indexed for answers)
-const FINAL_PPN = [
-    [0, 1000, 750, 500],  // Clue 1 (0-7s)
-    [0, 800, 600, 400],   // Clue 2 (7-14s)
-    [0, 600, 450, 300],   // Clue 3 (14-21s)
-    [0, 400, 300, 200]    // Clue 4 (21-30s)
-];
-
-function renderFinalIntro(q, container) {
-    Game.currentFinalQ = q;
-
-    // 2P: If fanfare already played, skip to instructions for P2
-    if (Game.mode === 2 && Game.finalFanfarePlayed) {
-        renderFinalInstructions(q);
-        return;
-    }
-
-    // Fanfare + loading screen (Enter to skip)
-    let advanced = false;
-    let timer = null;
-    function advance() {
-        if (advanced) return;
-        advanced = true;
-        if (timer) clearTimeout(timer);
-        Game.splashCallback = null;
-        if (Game.mode === 2) {
-            Game.finalFanfarePlayed = true;
-            Game.finalPlayerData = [];
-            Game.finalSavedChoices = null;
-            // Show P1 ready screen with "look away" warning
-            showFinalReadyScreen();
-        } else {
-            renderFinalInstructions(q);
-        }
-    }
+// --- FINAL ROUND PLACEHOLDER (Phase 4 will replace this) ---
+function renderFinalPlaceholder(q, container) {
     container.innerHTML = `
         <div class="center-screen">
-            <h1 style="font-size:60px; line-height:1; margin-bottom:20px;">FINAL ROUND:</h1>
-            <h1 style="font-size:50px; line-height:1; margin-bottom:20px;">"CLUE-SE ENOUGH!"</h1>
-            <div style="font-family:'Oswald'; font-size:20px; opacity:0.6; letter-spacing:4px;">[ LOADING... ]</div>
-        </div>
-    `;
-    AudioEngine.playFanfare();
-    Game.splashCallback = advance;
-    timer = setTimeout(advance, 2000);
-}
-
-function showFinalReadyScreen() {
-    const playerNum = Game.player + 1;
-    const otherPlayer = Game.player === 0 ? 2 : 1;
-    const lookAway = Game.player === 0 ? `<div style="font-size:22px; margin-top:10px; opacity:0.8;">(Player ${otherPlayer}, look away!)</div>` : '';
-    document.getElementById("app").innerHTML = `
-        <div class="center-screen">
-            <h1>Player ${playerNum}</h1>
-            <h2>Get Ready...</h2>
-            ${lookAway}
-            <button onclick="renderFinalInstructions(Game.currentFinalQ)">Start Turn</button>
-        </div>
-    `;
-}
-
-function renderFinalInstructions(q) {
-    const category = q.category || "General Knowledge";
-    document.getElementById("app").innerHTML = `
-        <div class="center-screen">
-            <div style="max-width:650px;">
-                <div style="font-family:'Oswald',sans-serif; font-size:48px; color:var(--gold); letter-spacing:2px; margin-bottom:20px;">INSTRUCTIONS</div>
-                <div style="font-size:22px; line-height:1.6; font-weight:300;">
-                    Your category this round is <strong style="color:var(--gold);">${category}</strong>.
-                    Choose up to 3 answers. You will be shown clues about the correct answer.
-                    Potential points go down the more answers you choose, and every time you see a new clue,
-                    potential points go down <strong>EVEN FURTHER!</strong>
-                </div>
-                <div style="font-size:18px; margin-top:20px; opacity:0.7;">Ready, set…</div>
+            <h1 style="font-size:56px; line-height:1.1;">FINAL ROUND:<br>"CLUE-SE ENOUGH!"</h1>
+            <div style="font-family:'Oswald'; font-size:20px; opacity:0.6; letter-spacing:2px; margin-top:20px;">[ COMING SOON ]</div>
+            <div style="font-size:18px; opacity:0.5; max-width:500px; margin-top:10px;">
+                The Final Round mechanic is under construction. For now, the game ends here.
             </div>
-            <button onclick="renderFinalRound()">GO!</button>
+            <button onclick="Game.index++; showGameOver()">SEE FINAL SCORE</button>
         </div>
-    `;
-    Game.currentFinalQ = q;
-}
-
-function renderFinalRound() {
-    AudioEngine.playTurnBellLow();
-    const q = Game.currentFinalQ;
-    const container = document.getElementById("app");
-
-    // Build choices — reuse saved order for P2 in 2P
-    let choices;
-    if (Game.mode === 2 && Game.finalSavedChoices) {
-        choices = Game.finalSavedChoices;
-    } else {
-        choices = [];
-        for (let i = 1; i <= 16; i++) {
-            if (q[`choice_${i}`]) {
-                choices.push({ txt: q[`choice_${i}`], id: i });
-            }
-        }
-        choices = choices.sort(() => Math.random() - 0.5);
-        if (Game.mode === 2) Game.finalSavedChoices = choices;
-    }
-
-    const clues = [q.clue_1 || "", q.clue_2 || "", q.clue_3 || "", q.clue_4 || ""];
-
-    container.innerHTML = `
-        <div class="screen-container">
-            <div class="left-panel">
-                <div class="final-clue-label">CATEGORY: ${q.category || "General Knowledge"}</div>
-                <div class="final-clue-box">
-                    <div>
-                        <div class="final-clue-label" id="finalClueLabel">CLUE 1 OF 4</div>
-                        <div class="final-clue-text" id="finalClueText">${clues[0]}</div>
-                    </div>
-                </div>
-                <div class="hint" style="font-size:14px; margin-top:10px;">Submit 3 answers max</div>
-            </div>
-            <div class="right-panel" style="padding-top:15px;">
-                <div class="timer-display" id="gameTimer">0:30</div>
-                <div class="final-grid">
-                    ${choices.map(c => `<div class="final-item" onclick="toggleFinal(this, ${c.id})">${c.txt}</div>`).join('')}
-                </div>
-                <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="finalPpn">0</div></div>
-                <button onclick="submitFinal()">SUBMIT ANSWER</button>
-            </div>
-        </div>
-        <div class="final-countdown" id="finalCountdown"></div>
-    `;
-
-    // State
-    const finalSelection = new Set();
-    let cluePhase = 0;
-    let totalSeconds = 30;
-    let elapsed = 0;
-
-    function updatePPN() {
-        const n = finalSelection.size;
-        if (n === 0) {
-            document.getElementById("finalPpn").innerText = "0";
-            return;
-        }
-        const ppn = FINAL_PPN[cluePhase][n] || 0;
-        document.getElementById("finalPpn").innerText = ppn;
-    }
-
-    // Toggle answers
-    window.toggleFinal = function(el, id) {
-        if (finalSelection.has(id)) {
-            finalSelection.delete(id);
-            el.classList.remove('active');
-            AudioEngine.playMapClick(finalSelection.size, false);
-        } else {
-            if (finalSelection.size >= 3) return;
-            finalSelection.add(id);
-            el.classList.add('active');
-            AudioEngine.playMapClick(finalSelection.size, true);
-        }
-        updatePPN();
-    };
-
-    // Clue phase transitions
-    function updateClue(isTransition) {
-        const label = document.getElementById("finalClueLabel");
-        const text = document.getElementById("finalClueText");
-        if (label) label.innerText = `CLUE ${cluePhase + 1} OF 4`;
-        if (text) {
-            text.innerText = clues[cluePhase];
-            if (isTransition) {
-                text.classList.remove('clue-change');
-                void text.offsetWidth;
-                text.classList.add('clue-change');
-                AudioEngine.playClueChime();
-            }
-        }
-        updatePPN();
-    }
-
-    // Custom timer for final round
-    clearGameTimer();
-    Game.timedOut = false;
-
-    function updateTimerEl() {
-        const remaining = totalSeconds - elapsed;
-        const el = document.getElementById("gameTimer");
-        if (!el) return;
-        const m = Math.floor(remaining / 60);
-        const s = remaining % 60;
-        el.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-        if (remaining <= 5) el.classList.add('timer-warn');
-        else el.classList.remove('timer-warn');
-    }
-
-    updateTimerEl();
-
-    Game.activeTimer = setInterval(function() {
-        elapsed++;
-        const remaining = totalSeconds - elapsed;
-        updateTimerEl();
-
-        // Clue phase transitions
-        if (elapsed === 7 && cluePhase < 1) { cluePhase = 1; updateClue(true); }
-        else if (elapsed === 14 && cluePhase < 2) { cluePhase = 2; updateClue(true); }
-        else if (elapsed === 21 && cluePhase < 3) { cluePhase = 3; updateClue(true); }
-
-        // Big countdown overlay + beeps at 5-1 seconds remaining
-        if (remaining <= 5 && remaining >= 1) {
-            AudioEngine.playTimerBeep();
-            const cdEl = document.getElementById("finalCountdown");
-            if (cdEl) {
-                cdEl.innerText = remaining;
-                cdEl.classList.add('visible');
-            }
-        }
-        if (remaining <= 0 && remaining > -1) {
-            const cdEl = document.getElementById("finalCountdown");
-            if (cdEl) cdEl.classList.remove('visible');
-        }
-
-        // Time's up
-        if (remaining <= 0) {
-            clearGameTimer();
-            Game.timedOut = true;
-            AudioEngine.playBuzzer();
-            handleFinalSubmit(q, 0, finalSelection, choices, cluePhase);
-        }
-    }, 1000);
-
-    // Submit
-    window.submitFinal = function() {
-        clearGameTimer();
-        const cdEl = document.getElementById("finalCountdown");
-        if (cdEl) cdEl.classList.remove('visible');
-
-        if (finalSelection.size === 0) {
-            handleFinalSubmit(q, 0, finalSelection, choices, cluePhase);
-            return;
-        }
-
-        // Check if correct answer is among selections
-        const correctAnswer = (q.correct_answer || "").trim();
-        let isCorrect = false;
-        finalSelection.forEach(id => {
-            const c = choices.find(ch => ch.id === id);
-            if (c && c.txt.trim() === correctAnswer) isCorrect = true;
-        });
-
-        const pts = isCorrect ? (FINAL_PPN[cluePhase][finalSelection.size] || 0) : 0;
-        handleFinalSubmit(q, pts, finalSelection, choices, cluePhase);
-    };
-}
-
-// Route final results based on mode
-function handleFinalSubmit(q, pts, selection, choices, cluePhase) {
-    if (Game.mode === 1) {
-        showFinalResult1P(q, pts, selection, choices);
-    } else {
-        // 2P pass-and-play
-        Game.finalPlayerData.push({
-            picks: new Set(selection),
-            pts: pts
-        });
-
-        if (Game.player === 0) {
-            // P1 done — no result shown, go to P2
-            AudioEngine.playTurnBellLow();
-            Game.player = 1;
-            showFinalReadyScreen();
-        } else {
-            // P2 done — show combined result
-            AudioEngine.playNeutralBell();
-            Game.scores[0] += Game.finalPlayerData[0].pts;
-            Game.scores[1] += pts;
-            Game.player = 0;
-            Game.index++;
-            showFinalResult2P(q, choices);
-        }
-    }
-}
-
-// --- 1P FINAL RESULT ---
-function showFinalResult1P(q, pts, selection, choices) {
-    if (pts > 0) AudioEngine.playBonusWin(); else AudioEngine.playLoss();
-
-    Game.scores[0] += pts;
-    Game.index++;
-
-    const correctAnswer = (q.correct_answer || "").trim();
-
-    const selectedChoices = choices.filter(c => selection.has(c.id));
-    const answerListHTML = selectedChoices.map(c => {
-        const isCorrect = c.txt.trim() === correctAnswer;
-        const mark = isCorrect ? '<span style="color:#00dd44; font-size:22px; margin-right:8px;">✔</span>' : '<span style="color:#ff4444; font-size:22px; margin-right:8px;">✘</span>';
-        return `<div style="font-size:18px; margin:6px 0;">${mark}${c.txt}</div>`;
-    }).join('');
-
-    const headerText = Game.timedOut ? "RAN OUT OF TIME!" : (pts > 0 ? "CORRECT!" : "NOT QUITE...");
-
-    document.getElementById("app").innerHTML = `
-        <h1>${headerText}</h1>
-        <div style="font-family:'Oswald'; font-size:20px; opacity:0.6; letter-spacing:2px; margin-bottom:10px;">THE CORRECT ANSWER WAS:</div>
-        <div class="answer-text" style="color:var(--gold);">${correctAnswer}</div>
-        ${selectedChoices.length > 0 ? `
-            <div style="font-family:'Oswald'; font-size:16px; opacity:0.5; letter-spacing:2px; margin-top:15px;">YOUR SELECTIONS:</div>
-            <div style="margin:10px auto; max-width:400px; text-align:left;">${answerListHTML}</div>
-        ` : '<div style="font-size:18px; opacity:0.5; margin:10px 0;">No answers submitted</div>'}
-        <h2>+${pts} Points</h2>
-        <div style="width:90%; margin:20px auto;">
-            <div class="score-box-1p"><div class="score-label">YOUR FINAL SCORE:</div><div class="score-val">${Game.scores[0]}</div></div>
-        </div>
-        <button onclick="buildDeck(); showTitleScreen()">PLAY AGAIN</button>
-    `;
-}
-
-// --- 2P FINAL RESULT ---
-function showFinalResult2P(q, choices) {
-    const correctAnswer = (q.correct_answer || "").trim();
-    const p1Data = Game.finalPlayerData[0] || { picks: new Set(), pts: 0 };
-    const p2Data = Game.finalPlayerData[1] || { picks: new Set(), pts: 0 };
-
-    AudioEngine.playBonusWin();
-
-    // Build answer list for a player
-    function buildPlayerAnswers(data) {
-        const selected = choices.filter(c => data.picks.has(c.id));
-        if (selected.length === 0) return '<div style="font-size:16px; opacity:0.5; margin:6px 0;">No answers submitted</div>';
-        return selected.map(c => {
-            const isCorrect = c.txt.trim() === correctAnswer;
-            const mark = isCorrect ? '<span style="color:#00dd44; font-size:20px; margin-right:8px;">✔</span>' : '<span style="color:#ff4444; font-size:20px; margin-right:8px;">✘</span>';
-            return `<div style="font-size:16px; margin:5px 0;">${mark}${c.txt}</div>`;
-        }).join('');
-    }
-
-    const p1 = Game.scores[0], p2 = Game.scores[1];
-    let winnerText = "IT'S A TIE!";
-    if (p1 > p2) winnerText = "PLAYER 1 WINS!";
-    else if (p2 > p1) winnerText = "PLAYER 2 WINS!";
-
-    document.getElementById("app").innerHTML = `
-        <h1>GAME OVER</h1>
-        <div style="font-family:'Oswald'; font-size:20px; opacity:0.6; letter-spacing:2px; margin-bottom:10px;">THE CORRECT ANSWER WAS:</div>
-        <div class="answer-text" style="color:var(--gold);">${correctAnswer}</div>
-        <div style="display:flex; gap:20px; width:90%; margin:20px auto; text-align:left; flex-wrap:wrap;">
-            <div style="flex:1; min-width:250px;">
-                <div style="font-family:'Oswald'; font-size:24px; color:var(--gold); margin-bottom:8px;">PLAYER 1</div>
-                <div style="margin-bottom:10px;">${buildPlayerAnswers(p1Data)}</div>
-                <div style="font-family:'Oswald'; font-size:20px; opacity:0.8;">+${p1Data.pts} Points</div>
-            </div>
-            <div style="flex:1; min-width:250px;">
-                <div style="font-family:'Oswald'; font-size:24px; color:var(--gold); margin-bottom:8px;">PLAYER 2</div>
-                <div style="margin-bottom:10px;">${buildPlayerAnswers(p2Data)}</div>
-                <div style="font-family:'Oswald'; font-size:20px; opacity:0.8;">+${p2Data.pts} Points</div>
-            </div>
-        </div>
-        <h1 style="font-size:52px; color:var(--gold); animation: flashOnOff 1s linear infinite; margin-top:20px;">${winnerText}</h1>
-        <div style="display:flex; gap:20px; width:90%; margin:15px auto;">
-            <div class="score-box"><div class="score-label">PLAYER 1'S SCORE:</div><div class="score-val">${p1}</div></div>
-            <div class="score-box"><div class="score-label">PLAYER 2'S SCORE:</div><div class="score-val">${p2}</div></div>
-        </div>
-        <button onclick="buildDeck(); showTitleScreen()">PLAY AGAIN</button>
     `;
 }
 
 // --- BONUS ROUND SEQUENCE ---
 
-// STEP 1: INTRO FANFARE (both modes use Spot the Fakes!)
+// STEP 1: INTRO FANFARE
 function renderBonusIntro(q, container) {
-    Game.currentBonusQ = q;
-
-    // 2P: If fanfare already played, go straight to the grid
-    if (Game.mode === 2 && Game.bonusFanfarePlayed) {
-        renderBonusGrid2P();
-        return;
-    }
-
-    container.innerHTML = `
-        <div class="center-screen">
-            <h1 style="font-size:80px; line-height:1; margin-bottom:10px;">BONUS ROUND:</h1>
-            <h1 style="font-size:60px; line-height:1; margin-bottom:20px;">Spot the Fakes!</h1>
-            <div style="font-family:'Oswald'; font-size:20px; opacity:0.6; letter-spacing:4px;">[ LOADING... ]</div>
-        </div>
-    `;
-    AudioEngine.playFanfare();
-
     if (Game.mode === 1) {
+        // 1P: "Spot the Fakes!" intro
+        container.innerHTML = `
+            <div class="center-screen">
+                <h1 style="font-size:80px; line-height:1; margin-bottom:10px;">BONUS ROUND:</h1>
+                <h1 style="font-size:60px; line-height:1; margin-bottom:20px;">Spot the Fakes!</h1>
+                <div style="font-family:'Oswald'; font-size:20px; opacity:0.6; letter-spacing:4px;">[ LOADING... ]</div>
+            </div>
+        `;
+        AudioEngine.playFanfare();
+        Game.currentBonusQ = q;
         setTimeout(() => renderBonusGrid1P(q), 2000);
     } else {
-        // 2P: After fanfare, mark as played, show ready screen for P1
-        Game.bonusPlayerData = [];
-        Game.bonusFanfarePlayed = true;
-        setTimeout(() => showReadyScreen(), 2000);
+        // 2P: Original intro → choice screen
+        container.innerHTML = `
+            <div class="center-screen">
+                <h1 style="font-size:100px; line-height:1; margin-bottom:20px;">BONUS ROUND</h1>
+                <div style="font-family:'Oswald'; font-size:20px; opacity:0.6; letter-spacing:4px;">[ LOADING... ]</div>
+            </div>
+        `;
+        AudioEngine.playFanfare();
+        setTimeout(() => renderBonusChoice(q, container), 2000);
     }
+}
+
+// STEP 2 (2P ONLY): CHOOSE YOUR MODE
+function renderBonusChoice(q, container) {
+    container.innerHTML = `
+        <div class="center-screen">
+            <div>
+                <div style="font-family:'Oswald'; font-size:36px; color:var(--gold); letter-spacing:2px; margin-bottom:10px;">BONUS ROUND CATEGORY:</div>
+                <h2 style="font-size:112px; margin:0;">${q.category || "General Knowledge"}</h2>
+            </div>
+            <div style="font-size:24px; max-width:600px; line-height:1.4;">
+                DO YOU WANT TO GET POINTS FOR EVERY <strong>REAL ANSWER</strong> YOU CHOOSE, OR EVERY <strong>FAKE ANSWER</strong>?
+            </div>
+            <div style="display:flex; gap:20px;">
+                <button onclick="renderBonusGrid2P('fake')">FAKE ANSWERS (6)</button>
+                <button onclick="renderBonusGrid2P('real')">REAL ANSWERS (8)</button>
+            </div>
+        </div>
+    `;
+    Game.currentBonusQ = q;
 }
 
 // --- 1P BONUS: SPOT THE FAKES ---
@@ -1461,7 +1057,7 @@ function renderBonusGrid1P(q) {
                 <div class="hint" style="font-size:16px; margin-bottom:0;">SPOT THE FAKES! You get more points for each fake answer you pick!</div>
             </div>
             <div class="right-panel" style="padding-top:15px;">
-                <div class="timer-display" id="gameTimer">0:30</div>
+                <div class="timer-display" id="gameTimer">0:20</div>
                 <h2 style="color:var(--gold); margin:0 0 8px 0; text-align:center;">SPOT THE FAKES!</h2>
                 <div class="bonus-grid">
                     ${choices.map(c => `<div class="bonus-item" onclick="toggleBonus1P(this, ${c.id})">${c.txt}</div>`).join('')}
@@ -1517,7 +1113,7 @@ function renderBonusGrid1P(q) {
             return `<div class="bonus-list-item" style="opacity:0.7;">${c.txt}</div>`;
         }).join('');
 
-        const headerText = Game.timedOut ? "RAN OUT OF TIME!" : `YOU GOT ${correctFakes} ${correctFakes === 1 ? 'FAKE' : 'FAKES'} RIGHT!`;
+        const headerText = Game.timedOut ? "RAN OUT OF TIME!" : `YOU GOT ${correctFakes} FAKES RIGHT!`;
 
         if (pts > 0) AudioEngine.playBonusWin(); else AudioEngine.playLoss();
 
@@ -1541,18 +1137,21 @@ function renderBonusGrid1P(q) {
         `;
     };
 
-    // Start timer (1P, 30 seconds)
-    startGameTimer(30, 'gameTimer', function() { window.submitBonus1P(); });
+    // Start timer (1P, 20 seconds)
+    startGameTimer(20, 'gameTimer', function() { window.submitBonus1P(); });
 }
 
-// --- 2P BONUS: SPOT THE FAKES (pass-and-play) ---
-function renderBonusGrid2P() {
+// --- 2P BONUS: Original real/fake choice flow (unchanged) ---
+function renderBonusGrid2P(mode) {
     AudioEngine.playTurnBellLow();
     const q = Game.currentBonusQ;
     const container = document.getElementById("app");
-    const bonusCap = 6;
+    
+    let targetIsTruth = (mode === 'real'); 
+    let headerText = targetIsTruth ? "CLICK THE REAL ONES" : "FAKE ANSWERS ONLY!";
+    let bonusCap = targetIsTruth ? 8 : 6;
+    let subText = targetIsTruth ? "Pick up to 8 options and earn 25 points for each CORRECT one you choose!" : "Pick up to 6 options and earn 25 points for each FAKE one you choose!";
 
-    // Reuse same shuffled choices for both players
     let choices = [];
     if (Game.savedBonus && Game.savedBonus.id === q.id) {
         choices = Game.savedBonus.list;
@@ -1572,128 +1171,195 @@ function renderBonusGrid2P() {
         <div class="screen-container">
             <div class="left-panel" style="padding-bottom:15px;">
                 <h2 style="font-size:41px;">${q.question_text || ""}</h2>
-                <div class="hint" style="font-size:16px; margin-bottom:0;">SPOT THE FAKES! You get more points for each fake answer you pick!</div>
+                <div class="hint" style="font-size:16px; margin-bottom:0;">${subText}</div>
             </div>
             <div class="right-panel" style="padding-top:15px;">
-                <div class="timer-display" id="gameTimer">0:30</div>
-                <h2 style="color:var(--gold); margin:0 0 8px 0; text-align:center;">SPOT THE FAKES!</h2>
+                <h2 style="color:var(--gold); margin:0 0 8px 0; text-align:center;">${headerText}</h2>
                 <div class="bonus-grid">
-                    ${choices.map(c => `<div class="bonus-item" onclick="toggleBonus2P(this, ${c.id})">${c.txt}</div>`).join('')}
+                    ${choices.map(c => `<div class="bonus-item" onclick="toggleBonus(this, ${c.id})">${c.txt}</div>`).join('')}
                 </div>
                 <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="bonusPpn">0</div></div>
-                <button onclick="submitBonus2P()">SUBMIT ANSWER</button>
+                <button onclick="submitBonus('${mode}')">SUBMIT ANSWER</button>
             </div>
         </div>
     `;
 
     Game.bonusSelection = new Set();
-
-    window.toggleBonus2P = function(el, id) {
+    
+    window.toggleBonus = function(el, id) {
         if(Game.bonusSelection.has(id)) {
             Game.bonusSelection.delete(id);
             el.classList.remove('active');
             AudioEngine.playMapClick(Game.bonusSelection.size, false);
         } else {
-            if(Game.bonusSelection.size >= bonusCap) return;
+            if(Game.bonusSelection.size >= bonusCap) return; 
             Game.bonusSelection.add(id);
             el.classList.add('active');
             AudioEngine.playMapClick(Game.bonusSelection.size, true);
         }
-        document.getElementById("bonusPpn").innerText = Game.bonusSelection.size * 100;
+        document.getElementById("bonusPpn").innerText = Game.bonusSelection.size * 25;
     };
 
-    window.submitBonus2P = function() {
-        clearGameTimer();
+    window.submitBonus = function(mode) {
+        const targetIsTruth = (mode === 'real');
+        
+        let correctCount = 0;
+        let incorrectCount = 0;
 
-        let correctFakes = 0;
         Game.bonusSelection.forEach(id => {
             const c = choices.find(ch => ch.id === id);
-            if (!c.isFact) correctFakes++;
+            const isCorrectSelection = (targetIsTruth && c.isFact) || (!targetIsTruth && !c.isFact);
+            if (isCorrectSelection) correctCount++;
+            else incorrectCount++;
         });
-        const pts = Game.timedOut ? 0 : correctFakes * 100;
 
-        // Save this player's picks and score
+        const pts = correctCount * 25;
+
+        // Save this player's bonus data
         Game.bonusPlayerData.push({
             picks: new Set(Game.bonusSelection),
+            targetIsTruth: targetIsTruth,
             pts: pts
         });
 
         if (Game.player === 0) {
-            // P1 done — store temp, transition to P2
             AudioEngine.playTurnBellLow();
             Game.tempScore = pts;
             Game.player = 1;
             showReadyScreen();
         } else {
-            // P2 done — commit scores, show results
             AudioEngine.playNeutralBell();
             Game.scores[0] += Game.tempScore;
             Game.scores[1] += pts;
             Game.player = 0;
             Game.index++;
-            showBonusResult2P(choices);
+            showBonusResult2P(choices, q);
         }
     };
-
-    // Start timer (30 seconds)
-    startGameTimer(30, 'gameTimer', function() { window.submitBonus2P(); });
 }
 
-// --- 2P BONUS RESULT: SPOT THE FAKES ---
-function showBonusResult2P(choices) {
-    const fakeAnswers = choices.filter(c => !c.isFact);
+// --- 2P BONUS RESULT GRID ---
+function showBonusResult2P(choices, q) {
+    const players = Game.bonusPlayerData;
+
+    // Separate into real and fake
     const realAnswers = choices.filter(c => c.isFact);
-    const p1Data = Game.bonusPlayerData[0] || { picks: new Set(), pts: 0 };
-    const p2Data = Game.bonusPlayerData[1] || { picks: new Set(), pts: 0 };
+    const fakeAnswers = choices.filter(c => !c.isFact);
 
-    AudioEngine.playBonusWin();
+    // For each answer, build tag data: {playerIdx, green, label}
+    function buildTags(answer) {
+        const tags = [];
+        players.forEach((p, pi) => {
+            if (!p.picks.has(answer.id)) return;
+            const isCorrect = (p.targetIsTruth && answer.isFact) || (!p.targetIsTruth && !answer.isFact);
+            tags.push({ playerIdx: pi, green: isCorrect, label: `${pi+1}P +${isCorrect ? 25 : 0}pts` });
+        });
+        // Greens first, then reds
+        const greens = tags.filter(t => t.green);
+        const reds = tags.filter(t => !t.green);
+        return [...greens, ...reds];
+    }
 
-    // Build fake answer rows with checkmarks for each player
-    const fakeListHTML = fakeAnswers.map(c => {
-        const p1Picked = p1Data.picks.has(c.id);
-        const p2Picked = p2Data.picks.has(c.id);
-        const p1Mark = p1Picked ? '<span style="color:#00dd44; font-size:20px;">✔</span>' : '<span style="opacity:0.2;">—</span>';
-        const p2Mark = p2Picked ? '<span style="color:#00dd44; font-size:20px;">✔</span>' : '<span style="opacity:0.2;">—</span>';
-        return `<div style="display:flex; align-items:center; gap:10px; padding:4px 0; font-size:15px;">
-            <span style="width:28px; text-align:center;">${p1Mark}</span>
-            <span style="width:28px; text-align:center;">${p2Mark}</span>
-            <span>${c.txt}</span>
+    // Build answer bar HTML
+    function answerBarHTML(answer, idx, prefix, deferred) {
+        const id = `${prefix}_${idx}`;
+        const animClass = deferred ? '' : 'fly-bottom';
+        return `<div id="${id}" class="bonus-anim-item ${animClass}" style="background:rgba(90,10,158,0.85); color:white; animation-delay:${(idx * 0.15).toFixed(2)}s; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>${answer.txt}</span>
+            <span id="${id}_tags" style="display:inline-flex; gap:8px; flex-wrap:wrap;"></span>
         </div>`;
-    }).join('');
+    }
 
-    const realListHTML = realAnswers.map(c => {
-        return `<div style="padding:4px 0; font-size:15px; opacity:0.6;">${c.txt}</div>`;
-    }).join('');
+    const realBarsHTML = realAnswers.map((c, i) => answerBarHTML(c, i, 'real', false)).join('');
+    const fakeBarsHTML = fakeAnswers.map((c, i) => answerBarHTML(c, i, 'fake', true)).join('');
 
+    // Winner text
     const p1 = Game.scores[0], p2 = Game.scores[1];
+    let winnerText = "IT'S A TIE!";
+    if (p1 > p2) winnerText = "PLAYER 1 WINS!";
+    else if (p2 > p1) winnerText = "PLAYER 2 WINS!";
+
     const scoreHTML = `<div style="display:flex; gap:20px; width:100%;">
         <div class="score-box"><div class="score-label">PLAYER 1'S SCORE:</div><div class="score-val">${p1}</div></div>
         <div class="score-box"><div class="score-label">PLAYER 2'S SCORE:</div><div class="score-val">${p2}</div></div>
     </div>`;
 
     document.getElementById("app").innerHTML = `
-        <h1>BONUS ROUND RESULTS</h1>
-        <h2 style="display:flex; justify-content:center; gap:60px; flex-wrap:wrap;">
-            <span>P1 <span style="color:var(--gold);">+${p1Data.pts}</span></span>
-            <span>P2 <span style="color:var(--gold);">+${p2Data.pts}</span></span>
-        </h2>
-        <div class="bonus-result-container">
-            <div class="bonus-col">
-                <h3>FAKE ANSWERS</h3>
-                <div style="display:flex; gap:10px; margin-bottom:8px; font-family:'Oswald'; font-size:12px; letter-spacing:1px; opacity:0.5;">
-                    <span style="width:28px; text-align:center;">P1</span>
-                    <span style="width:28px; text-align:center;">P2</span>
-                </div>
-                ${fakeListHTML}
-            </div>
-            <div class="bonus-col">
-                <h3>REAL ANSWERS</h3>
-                ${realListHTML}
-            </div>
+        <div class="bonus-anim-section">
+            <div class="bonus-anim-header" style="animation-delay:0s;">REAL ANSWERS:</div>
+            <div class="bonus-anim-grid" id="realGrid">${realBarsHTML}</div>
+            <div class="bonus-anim-header" id="fakeHeader" style="opacity:0;">FAKE ANSWERS:</div>
+            <div class="bonus-anim-grid" id="fakeGrid" style="opacity:0;">${fakeBarsHTML}</div>
         </div>
-        <div style="width:90%; margin:20px auto;">${scoreHTML}</div>
-        <button onclick="nextTurn()">CONTINUE</button>
+        <div id="twoPlayerFinale" style="display:none; text-align:center;">
+            <h1 style="font-size:52px; color:var(--gold); animation: flashOnOff 1s linear infinite;">${winnerText}</h1>
+            <div style="width:90%; margin:15px auto;">${scoreHTML}</div>
+            <button onclick="location.reload()">PLAY AGAIN</button>
+        </div>
     `;
+
+    // --- ANIMATION SEQUENCER ---
+    // Animate tags for a list of answers, then call onDone
+    function animateTags(answers, prefix, startDelay, onDone) {
+        let delay = startDelay;
+        const tagGroups = answers.map((c, i) => ({ idx: i, tags: buildTags(c) })).filter(g => g.tags.length > 0);
+
+        tagGroups.forEach((group, gi) => {
+            group.tags.forEach((tag, ti) => {
+                setTimeout(() => {
+                    const container = document.getElementById(`${prefix}_${group.idx}_tags`);
+                    if (!container) return;
+                    const color = tag.green ? '#00dd44' : '#ff4444';
+                    const span = document.createElement('span');
+                    span.style.cssText = `color:${color}; font-family:'Oswald',sans-serif; font-size:14px; font-weight:600; white-space:nowrap;`;
+                    span.textContent = tag.label;
+                    container.appendChild(span);
+                    if (tag.green) AudioEngine.playTagBell();
+                    else AudioEngine.playTagBzz();
+                }, delay * 1000);
+                delay += 0.2;
+            });
+            // 0.3s gap after this line completes (unless it's the last group)
+            if (gi < tagGroups.length - 1) delay += 0.3;
+        });
+
+        // Call onDone after all tags + buffer
+        if (tagGroups.length > 0) delay += 0.2;
+        setTimeout(onDone, delay * 1000);
+    }
+
+    // Phase timing
+    const realFlyDuration = realAnswers.length * 0.15 + 0.4;
+
+    // Phase 1: After real answers fly in, animate real tags
+    animateTags(realAnswers, 'real', realFlyDuration, function() {
+        // Wait 0.2s, show FAKE ANSWERS header + grid
+        setTimeout(function() {
+            const fakeHeader = document.getElementById('fakeHeader');
+            const fakeGrid = document.getElementById('fakeGrid');
+            if (fakeHeader) { fakeHeader.style.opacity = '1'; fakeHeader.style.animation = 'fadeIn 0.3s forwards'; }
+            if (fakeGrid) {
+                fakeGrid.style.opacity = '1';
+                // Trigger fly animations on fake bars now
+                fakeGrid.querySelectorAll('.bonus-anim-item').forEach((el, i) => {
+                    el.style.animationDelay = (i * 0.15).toFixed(2) + 's';
+                    el.classList.add('fly-bottom');
+                });
+            }
+
+            const fakeFlyDuration = fakeAnswers.length * 0.15 + 0.4;
+
+            // Phase 2: After fake answers fly in, animate fake tags
+            animateTags(fakeAnswers, 'fake', fakeFlyDuration, function() {
+                // Phase 3: Wait 0.2s, show finale
+                setTimeout(function() {
+                    const finale = document.getElementById('twoPlayerFinale');
+                    if (finale) finale.style.display = 'block';
+                    AudioEngine.playBonusWin();
+                }, 200);
+            });
+        }, 200);
+    });
 }
 
 // --- RENDERER: PINCH ---
@@ -1721,7 +1387,7 @@ function renderPinch(q, container) {
                 <div class="hint">Choose a single number or a range of numbers.</div>
             </div>
             <div class="right-panel">
-                <div class="timer-display" id="gameTimer">0:15</div>
+                ${Game.mode === 1 ? '<div class="timer-display" id="gameTimer">0:15</div>' : ''}
                 <div class="selection-display" id="selectionDisp">SELECTED: 0</div>
                 <div id="rulerContainer"></div>
                 <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="ppnDisplay">0</div></div>
@@ -1878,12 +1544,14 @@ function renderPinch(q, container) {
         const rawPpn = update();
         const win = (r >= Math.floor(trueVal) && l <= Math.ceil(trueVal));
         const pts = win ? Math.round(rawPpn * Game.currentMultiplier) : 0;
-        if (Game.timedOut) showResult(0, q.answer_text, q, false, Game.mode === 1 ? "RAN OUT OF TIME!" : null);
+        if (Game.timedOut) showResult(0, q.answer_text, q, false, "RAN OUT OF TIME!");
         else showResult(pts, q.answer_text, q);
     };
 
-    // Start timer
-    startGameTimer(15, 'gameTimer', function() { Game.submitPinch(); });
+    // Start timer (1P only)
+    if (Game.mode === 1) {
+        startGameTimer(15, 'gameTimer', function() { Game.submitPinch(); });
+    }
 }
 
 // --- RENDERER: MAP ---
@@ -1895,7 +1563,7 @@ function renderMap(q, container) {
                 <div class="hint">Select up to ${q.max_selectable} regions.</div>
             </div>
             <div class="right-panel">
-                <div class="timer-display" id="gameTimer">0:15</div>
+                ${Game.mode === 1 ? '<div class="timer-display" id="gameTimer">0:15</div>' : ''}
                 <div id="mapBox">Loading Map...</div>
                 <div class="ppn-row"><div class="ppn-label">Potential Points:</div><div class="ppn-display" id="mapPpn">0</div></div>
                 <button onclick="Game.submitMap()">SUBMIT ANSWER</button>
@@ -2005,12 +1673,14 @@ function renderMap(q, container) {
             
             let ansText = q.answer_text || `This is ${q.correct_ids}:`;
 
-            if (Game.timedOut) showResult(0, ansText, q, false, Game.mode === 1 ? "RAN OUT OF TIME!" : null);
+            if (Game.timedOut) showResult(0, ansText, q, false, "RAN OUT OF TIME!");
             else showResult(pts, ansText, q);
         };
 
-        // Start timer
-        startGameTimer(15, 'gameTimer', function() { Game.submitMap(); });
+        // Start timer (1P only)
+        if (Game.mode === 1) {
+            startGameTimer(15, 'gameTimer', function() { Game.submitMap(); });
+        }
         return;
     } 
     // -------------------------
@@ -2080,12 +1750,14 @@ function renderMap(q, container) {
         const cost = +q.points_per_extra_unit || 10; let rawPts = 100 - (Math.max(0, selectedIDs.size - 1) * cost);
         if(selectedIDs.size === 0) rawPts = 0; if(!win) rawPts = 0;
         const pts = Math.round(rawPts * Game.currentMultiplier);
-        if (Game.timedOut) showResult(0, q.answer_text || `This is ${correct}:`, q, false, Game.mode === 1 ? "RAN OUT OF TIME!" : null);
+        if (Game.timedOut) showResult(0, q.answer_text || `This is ${correct}:`, q, false, "RAN OUT OF TIME!");
         else showResult(pts, q.answer_text || `This is ${correct}:`, q);
     };
 
-    // Start timer
-    startGameTimer(15, 'gameTimer', function() { Game.submitMap(); });
+    // Start timer (1P only)
+    if (Game.mode === 1) {
+        startGameTimer(15, 'gameTimer', function() { Game.submitMap(); });
+    }
 }
 
 // --- RENDERER: DRAW ---
@@ -2097,7 +1769,7 @@ function renderDraw(q, container) {
                 <div class="hint">Your shape can include multiple objects, but the bigger the shape, the fewer points you get!</div>
             </div>
             <div class="right-panel">
-                <div class="timer-display" id="gameTimer">0:15</div>
+                ${Game.mode === 1 ? '<div class="timer-display" id="gameTimer">0:15</div>' : ''}
                 <div id="drawContainer">
                     <img id="drawImg" src="${q.image_file}" alt="Question Image">
                     <canvas id="drawCanvas"></canvas>
@@ -2376,32 +2048,17 @@ function renderDraw(q, container) {
     // Submit
     Game.submitDraw = function() {
         clearGameTimer();
-        if (Game.drawEnterHandler) {
-            document.removeEventListener("keydown", Game.drawEnterHandler);
-            Game.drawEnterHandler = null;
-        }
         const rawPpn = calcPPN();
         const win = checkHit();
         const pts = win ? Math.round(rawPpn * Game.currentMultiplier) : 0;
-        if (Game.timedOut) showResult(0, q.answer_text || "Here is the correct answer:", q, false, Game.mode === 1 ? "RAN OUT OF TIME!" : null);
+        if (Game.timedOut) showResult(0, q.answer_text || "Here is the correct answer:", q, false, "RAN OUT OF TIME!");
         else showResult(pts, q.answer_text || "Here is the correct answer:", q);
     };
 
-    // Enter key skips draw with 0 points (since draw has 2 buttons, global handler won't fire)
-    Game.drawEnterHandler = function(e) {
-        if (e.key !== "Enter") return;
-        e.preventDefault();
-        clearGameTimer();
-        if (Game.drawEnterHandler) {
-            document.removeEventListener("keydown", Game.drawEnterHandler);
-            Game.drawEnterHandler = null;
-        }
-        showResult(0, q.answer_text || "Here is the correct answer:", q);
-    };
-    document.addEventListener("keydown", Game.drawEnterHandler);
-
-    // Start timer
-    startGameTimer(15, 'gameTimer', function() { Game.submitDraw(); });
+    // Start timer (1P only)
+    if (Game.mode === 1) {
+        startGameTimer(15, 'gameTimer', function() { Game.submitDraw(); });
+    }
 }
 
 function showResult(pts, ansText, q, isBonus, customHeader) {
