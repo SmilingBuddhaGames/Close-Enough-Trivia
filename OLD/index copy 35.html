@@ -892,42 +892,11 @@ function buildDeck() {
 function openDebug() {
     const list = document.getElementById("debugList");
     list.innerHTML = "";
-
-    // Map question types to appropriate round definitions for debug
-    const debugRoundForType = {
-        pinch: ROUNDS_1P[6],  // THE 1000 ROUND (10x)
-        map:   ROUNDS_1P[1],  // THE 200 ROUND (2x)
-        draw:  ROUNDS_1P[3],  // THE 400 ROUND (4x)
-        bonus: ROUNDS_1P[5],  // BONUS ROUND (1x)
-        final: ROUNDS_1P[7]   // FINAL ROUND (1x)
-    };
-
     Game.allQuestions.forEach(q => {
         const el = document.createElement("div");
         el.className = "debug-item";
         el.innerHTML = `<div class="debug-id">${q.id}</div><div class="debug-type">${q.type}</div>`;
-        el.onclick = () => {
-            closeDebug();
-            AudioEngine.init();
-            clearGameTimer();
-            Game.mode = 1;
-            Game.scores = [0,0];
-            Game.player = 0;
-            Game.index = 0;
-            Game.savedBonus = null;
-            Game.bonusPlayerData = [];
-            Game.pinchTutorialShown = new Set();
-            Game.currentMultiplier = 1;
-            Game.splashCallback = null;
-            Game.bonusFanfarePlayed = false;
-            Game.finalFanfarePlayed = false;
-            Game.finalPlayerData = [];
-            Game.finalSavedChoices = null;
-            Game.deck = [q];
-            Game.roundDefs = [debugRoundForType[q.type] || ROUNDS_1P[0]];
-            Game.currentMultiplier = Game.roundDefs[0].multiplier;
-            renderQuestion();
-        };
+        el.onclick = () => { closeDebug(); Game.deck = [q]; startGame(1); };
         list.appendChild(el);
     });
     document.getElementById("debugMenu").classList.add("active");
