@@ -1141,10 +1141,7 @@ function renderFinalInstructions(q) {
             <div style="max-width:650px;">
                 <div style="font-family:'Oswald',sans-serif; font-size:48px; color:var(--gold); letter-spacing:2px; margin-bottom:20px;">INSTRUCTIONS</div>
                 <div style="font-size:22px; line-height:1.6; font-weight:300;">
-                    Your category this round is:
-                </div>
-                <div style="font-family:'Oswald',sans-serif; font-size:36px; font-weight:700; color:var(--gold); margin:10px 0 16px 0;">${category}</div>
-                <div style="font-size:22px; line-height:1.6; font-weight:300;">
+                    Your category this round is <strong style="color:var(--gold);">${category}</strong>.
                     Choose up to 3 answers. You will be shown clues about the correct answer.
                     Potential points go down the more answers you choose, and every time you see a new clue,
                     potential points go down <strong>EVEN FURTHER!</strong>
@@ -1182,8 +1179,7 @@ function renderFinalRound() {
     container.innerHTML = `
         <div class="screen-container">
             <div class="left-panel">
-                <div style="font-family:'Oswald',sans-serif; font-size:16px; text-transform:uppercase; letter-spacing:2px; opacity:0.5; text-align:center;">CATEGORY</div>
-                <div style="font-family:'Oswald',sans-serif; font-size:42px; font-weight:700; color:var(--gold); text-align:center; margin-bottom:20px; line-height:1.2;">${q.category || "General Knowledge"}</div>
+                <div class="final-clue-label">CATEGORY: ${q.category || "General Knowledge"}</div>
                 <div class="final-clue-box">
                     <div>
                         <div class="final-clue-label" id="finalClueLabel">CLUE 1 OF 4</div>
@@ -1798,28 +1794,6 @@ function renderPinch(q, container) {
     // Explicitly set width to prevent weird rendering
     bar.attr("width", 0).attr("x", 20);
 
-    // --- DRAG HANDLES: Visible grip tabs on both edges ---
-    function makeHandle(className) {
-        const g = svg.append("g").attr("class", className).style("cursor", "ew-resize").style("pointer-events", "all");
-        // Main handle body - rounded pill
-        g.append("rect").attr("width", 16).attr("height", 70).attr("rx", 8).attr("ry", 8)
-            .style("fill", "rgba(255,215,0,0.6)").style("stroke", "#ffd700").style("stroke-width", "1.5px");
-        // Grip lines (3 horizontal lines)
-        for (let i = 0; i < 3; i++) {
-            g.append("line").attr("x1", 4).attr("x2", 12).attr("y1", 27 + i * 8).attr("y2", 27 + i * 8)
-                .style("stroke", "rgba(0,0,0,0.4)").style("stroke-width", "1.5px").style("stroke-linecap", "round");
-        }
-        return g;
-    }
-    const handleL = makeHandle("handle-left");
-    const handleR = makeHandle("handle-right");
-
-    function updateHandles() {
-        const barX = +bar.attr("x"), barW = +bar.attr("width");
-        handleL.attr("transform", `translate(${barX - 14}, ${20})`);
-        handleR.attr("transform", `translate(${barX + barW - 2}, ${20})`);
-    }
-
     function update() {
         const pxW = x(r) - x(l); const minPx = 15;
         const txtL = formatValue(l); const txtR = formatValue(r);
@@ -1829,23 +1803,30 @@ function renderPinch(q, container) {
         const ppn = Math.max(5, Math.round(100 - (rangeUnits * cost)));
         const displayPpn = Math.round(ppn * Game.currentMultiplier);
         document.getElementById("ppnDisplay").innerText = displayPpn;
-        updateHandles();
         return ppn; // raw 0-100 for sound & internal use
     }
     update();
 
-    // --- PINCH TUTORIAL: Pulsing handles on first pinch per player ---
+    // --- PINCH TUTORIAL: Pulsing edge indicators on first pinch per player ---
     let tutorialActive = false;
+    let edgeLeft = null, edgeRight = null;
 
     function addPulsingEdges() {
-        handleL.style("animation", "edgePulse 0.6s ease-in-out infinite");
-        handleR.style("animation", "edgePulse 0.6s ease-in-out infinite");
+        const barX = +bar.attr("x"), barW = +bar.attr("width");
+        edgeLeft = svg.append("rect")
+            .attr("x", barX - 6).attr("y", 20).attr("width", 14).attr("height", 70)
+            .attr("rx", 7).style("fill", "#ffd700").style("pointer-events", "none")
+            .style("animation", "edgePulse 0.6s ease-in-out infinite");
+        edgeRight = svg.append("rect")
+            .attr("x", barX + barW - 8).attr("y", 20).attr("width", 14).attr("height", 70)
+            .attr("rx", 7).style("fill", "#ffd700").style("pointer-events", "none")
+            .style("animation", "edgePulse 0.6s ease-in-out infinite");
         tutorialActive = true;
     }
 
     function removePulsingEdges() {
-        handleL.style("animation", null);
-        handleR.style("animation", null);
+        if (edgeLeft) { edgeLeft.remove(); edgeLeft = null; }
+        if (edgeRight) { edgeRight.remove(); edgeRight = null; }
         tutorialActive = false;
     }
 
@@ -1860,28 +1841,18 @@ function renderPinch(q, container) {
     function startDrag(mx) {
         if (tutorialActive) removePulsingEdges();
         const visualL = (x(r)-x(l) < 15) ? x(l)-7.5 : x(l); const visualW = (x(r)-x(l) < 15) ? 15 : x(r)-x(l);
-        // Wide touch zone around handles (40px) for easier grabbing on mobile
-        const handleZone = 40;
-        const leftHandleCenter = visualL;
-        const rightHandleCenter = visualL + visualW;
-        const distToLeft = Math.abs(mx - leftHandleCenter);
-        const distToRight = Math.abs(mx - rightHandleCenter);
-        if (distToLeft <= handleZone && distToLeft < distToRight) dragMode = 'left';
-        else if (distToRight <= handleZone) dragMode = 'right';
-        else if (mx >= visualL && mx <= visualL + visualW) dragMode = 'move';
-        else if (mx < visualL) dragMode = 'left';
-        else dragMode = 'right';
+        const edgeZone = Math.min(20, visualW / 3); 
+        if(mx < visualL + edgeZone) dragMode = 'left'; else if(mx > visualL + visualW - edgeZone) dragMode = 'right'; else dragMode = 'move';
         startX = mx; startL = l; startR = r; lastSoundVal = dragMode === 'right' ? r : l;
     }
 
-    // Mouse: listen on entire SVG so handles work
-    svg.on("mousedown", function(e) {
+    bar.on("mousedown", e => {
         startDrag(d3.pointer(e)[0]);
         d3.select(window).on("mousemove", onDrag).on("mouseup", stopDrag);
     });
 
-    // TOUCH SUPPORT: Listen on entire SVG
-    svg.node().addEventListener("touchstart", function(e) {
+    // TOUCH SUPPORT FOR PINCH BAR
+    bar.node().addEventListener("touchstart", function(e) {
         e.preventDefault();
         const touch = e.touches[0];
         const pt = d3.pointer(touch, svg.node());
